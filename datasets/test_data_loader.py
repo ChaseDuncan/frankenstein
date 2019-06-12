@@ -1,6 +1,7 @@
 import os
 
 import nibabel as nib
+import torch
 from torch.utils.data import Dataset
 
 class BraTSDataset(Dataset):
@@ -8,8 +9,8 @@ class BraTSDataset(Dataset):
         # store filenames. expects data_dir/{HGG, LGG}/
         # TODO: should HGG and LGG be separated?
         self.filenames = \
-                [ data_dir + "/HGG/" + f for f in os.listdir(data_dir + "/HGG/") ]
-        self.filenames.extend([ data_dir + "/LGG/" + f \
+                [ data_dir + "/HGG/" + f + "/" for f in os.listdir(data_dir + "/HGG/") ]
+        self.filenames.extend([ data_dir + "/LGG/" + f + "/"\
                 for f in os.listdir(data_dir + "/LGG/") ])
         self.filenames = [ f + d for f in self.filenames for d in os.listdir(f) ]
         # only take t1 files
@@ -24,8 +25,10 @@ class BraTSDataset(Dataset):
     def __getitem__(self, idx):
         # open image and apply transform if applicable
         img = nib.load(self.input[0]).get_fdata()
-        if self.transform not None:
-            img = self.transform(img)
         seg = nib.load(self.segs[0]).get_fdata()
-        return img, seg
+
+        # TODO: move this out
+        img = img[56:-56, 56:-56, 14:-13]  
+        seg = seg[56:-56, 56:-56, 14:-13]  
+        return torch.from_numpy(img), torch.from_numpy(seg)
 
