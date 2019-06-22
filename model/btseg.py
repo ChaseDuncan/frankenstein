@@ -52,7 +52,7 @@ class DownSampling(nn.Module):
 class UpsamplingBilinear3d(nn.modules.Upsample):
     def __init__(self, size=None, scale_factor=2):
         super(UpsamplingBilinear3d, self).__init__(size, scale_factor, 
-						mode='bilinear', align_corners=True)
+						mode='trilinear', align_corners=True)
 
 class CompressFeatures(nn.Module):
     # Reduce the number of features by a factor of 2.
@@ -72,6 +72,7 @@ class BraTSSegmentation(nn.Module):
         super(BraTSSegmentation, self).__init__()
         # channels_in=4, channels_out=32
         self.up = UpsamplingBilinear3d()
+        self.sig = nn.Sigmoid()
         # TODO: dimensions are wrong!
         self.initConv = nn.Conv3d(input_channels, 32, kernel_size=3, stride=1, padding=1)
         self.block0 = ResNetBlock(32)
@@ -81,7 +82,7 @@ class BraTSSegmentation(nn.Module):
         self.ds2 = DownSampling(64)
         self.block3 = ResNetBlock(128) 
         self.block4 = ResNetBlock(128) 
-        self.ds3 = DownSampling(32)
+        self.ds3 = DownSampling(128)
         self.block5 = ResNetBlock(256) 
         self.block6 = ResNetBlock(256) 
         self.block7 = ResNetBlock(256) 
@@ -109,14 +110,14 @@ class BraTSSegmentation(nn.Module):
         sp4 = self.block6(sp4)
         sp4 = self.block7(sp4)
         sp4 = self.block8(sp4)
-        sp3 += self.up(self.cf1(sp4))
+        sp3 = sp3 + self.up(self.cf1(sp4))
         sp3 = self.block9(sp3)
-        sp2 += self.up(self.cf2(sp3))
+        sp2 = sp2 + self.up(self.cf2(sp3))
         sp2 = self.block10(sp2)
-        sp1 += self.up(self.cf3(sp2))
+        sp1 = sp1 + self.up(self.cf3(sp2))
         sp1 = self.block11(sp1)
-        output = self.cf_final(sp1)
-        return nn.Sigmoid(output)
+        output = self.sig(self.cf_final(sp1))
+        return output
 
 
 
