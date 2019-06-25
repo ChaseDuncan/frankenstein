@@ -22,7 +22,7 @@ class BraTSDataset(Dataset):
 
     def __len__(self):
         # return size of dataset
-        return len(self.input)
+        return len(self.t1)
 
     def __getitem__(self, idx):
         # open image and apply transform if applicable
@@ -44,11 +44,6 @@ class BraTSDataset(Dataset):
         seg_wt[np.where(seg>0)] = 1
         src = np.stack((img_t1, img_t1ce))
         target = np.stack((seg_et, seg_tc, seg_wt))
-
-        #target[:, :, :, :] = 0    
-        #target[:, 20:30, 20:30, 20:30] = 1
-        #img[:, :, :] = 0    
-        #img[20:30, 20:30, 20:30] = 1
 
         return torch.from_numpy(src).unsqueeze(0), torch.from_numpy(target).unsqueeze(0)
 

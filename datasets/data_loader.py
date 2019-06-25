@@ -19,6 +19,7 @@ class BraTSDataset(Dataset):
 
     def __len__(self):
         # return size of dataset
+        import pdb;pdb.set_trace()
         return len(self.input)
 
     def __getitem__(self, idx):
