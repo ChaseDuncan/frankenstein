@@ -26,9 +26,9 @@ class BraTSDataset(Dataset):
 
     def __getitem__(self, idx):
         # open image and apply transform if applicable
-        img_t1 = nib.load(self.t1[0]).get_fdata()
-        img_t1ce = nib.load(self.t1ce[0]).get_fdata()
-        seg = nib.load(self.segs[0]).get_fdata()
+        img_t1 = nib.load(self.t1[idx]).get_fdata()
+        img_t1ce = nib.load(self.t1ce[idx]).get_fdata()
+        seg = nib.load(self.segs[idx]).get_fdata()
 
         # TODO: move this out
         img_t1 = img_t1[56:-56, 56:-56, 14:-13]  
