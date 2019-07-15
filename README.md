@@ -15,17 +15,20 @@ account and request the data.
 Download and install [Anaconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html).
 
 Install Nvidia toolkit:
-'''
+```
 sudo apt-get install nvidia-cuda-toolkit 
-'''
-
+```
 Install PyTorch:
 
-'''
+```
 conda install pytorch torchvision cudatoolkit=9.0 -c pytorch
-'''
+```
 
 Note that this will install torch for Cuda 9.0. You should check that this
-is the correct version by running ''' nvcc --version'''
+is the correct version by running 
+
+``` 
+nvcc --version 
+```
 
 
