@@ -17,6 +17,9 @@ class BraTSDataset(Dataset):
         # only take t1 files
         self.t1 = sorted([ f for f in self.filenames if "t1.nii.gz" in f ])
         self.t1ce = sorted([ f for f in self.filenames if "t1ce.nii.gz" in f ])
+        self.t2 = sorted([ f for f in self.filenames if "t2.nii.gz" in f ])
+        self.flair = sorted([ f for f in self.filenames if "flair.nii.gz" in f ])
+
         self.segs = sorted([ f for f in self.filenames if "seg.nii.gz" in f ])
         self.transform = transform
 
@@ -25,10 +28,11 @@ class BraTSDataset(Dataset):
         return len(self.t1)
 
     def __getitem__(self, idx):
+        print(self.t1[idx])
         # open image and apply transform if applicable
-        img_t1 = nib.load(self.t1[0]).get_fdata()
-        img_t1ce = nib.load(self.t1ce[0]).get_fdata()
-        seg = nib.load(self.segs[0]).get_fdata()
+        img_t1 = nib.load(self.t1[idx]).get_fdata()
+        img_t1ce = nib.load(self.t1ce[idx]).get_fdata()
+        seg = nib.load(self.segs[idx]).get_fdata()
 
         # TODO: move this out
         img_t1 = img_t1[56:-56, 56:-56, 14:-13]  

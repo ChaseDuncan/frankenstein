@@ -48,8 +48,8 @@ if deterministic_train:
 model = BraTSSegmentation(input_channels=2) 
 
 # TODO: continue training from checkpoint
-#checkpoint = torch.load('checkpoints/zero.pt')
-#model.load_state_dict(checkpoint['model_state_dict'])
+checkpoint = torch.load('checkpoints/test')
+model.load_state_dict(checkpoint['model_state_dict'])
 
 model = model.to(device)
 loss = DiceLoss()
@@ -59,8 +59,12 @@ best_loss = 1.0
 
 epoch = 0
 best_eval = 0.0
+# TODO: restart training from checkpoint.
+epoch = checkpoint['epoch']
+best_eval = 0.26033
 
-losses = {}
+# losses = {} # TODO: checkpoint issue
+losses = pickle.load(open("losses.pkl", "rb"))
 while(True):
     epoch+=1
     total_loss = 0.0
@@ -118,7 +122,8 @@ while(True):
                 
     best_eval = avg_eval_dice
 
-    if best_eval > 0.85: # TODO: better stopping criteria. Convergence threshold?
+    if best_eval > 0.80 or epoch > 999: # TODO: better stopping criteria. Convergence threshold?
         break
+
 print("Training complete.")
 
