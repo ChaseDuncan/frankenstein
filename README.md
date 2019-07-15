@@ -18,9 +18,11 @@ Install Nvidia toolkit:
 ```
 sudo apt-get install nvidia-cuda-toolkit 
 ```
-Install PyTorch:
 
+Once you've initialized a new Conda environment install the following packages:
+Most importantly, install PyTorch:
 ```
+# torch
 conda install pytorch torchvision cudatoolkit=9.0 -c pytorch
 ```
 
@@ -31,4 +33,13 @@ is the correct version by running
 nvcc --version 
 ```
 
+Then
+```
+# nibabel
+conda install -c conda-forge nibabel
+
+# tqdm
+conda install -c conda-forge tqdm
+
+```
 

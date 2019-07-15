@@ -2,8 +2,11 @@ import torch
 import torch.optim as optim
 import torch.utils.data.sampler as sampler
 import numpy as np
+
 from configparser import SafeConfigParser
+
 import pickle
+
 from tqdm import tqdm
 from utils import dice_score
 from torch.utils.data import DataLoader
@@ -25,6 +28,7 @@ device = torch.device("cuda" if use_cuda else "cpu")
 brats_data = BraTSDataset(data_dir)
 num_examples = len(brats_data)
 data_indices = np.arange(num_examples)
+# TODO: Make checkpoints dir if doesn't exist
 
 # Fix stochasticity in data sampling
 if deterministic_train:
@@ -48,8 +52,8 @@ if deterministic_train:
 model = BraTSSegmentation(input_channels=2) 
 
 # TODO: continue training from checkpoint
-checkpoint = torch.load('checkpoints/test')
-model.load_state_dict(checkpoint['model_state_dict'])
+#checkpoint = torch.load('checkpoints/test')
+#model.load_state_dict(checkpoint['model_state_dict'])
 
 model = model.to(device)
 loss = DiceLoss()
@@ -59,12 +63,14 @@ best_loss = 1.0
 
 epoch = 0
 best_eval = 0.0
-# TODO: restart training from checkpoint.
-epoch = checkpoint['epoch']
-best_eval = 0.26033
 
-# losses = {} # TODO: checkpoint issue
-losses = pickle.load(open("losses.pkl", "rb"))
+# TODO: restart training from checkpoint.
+#epoch = checkpoint['epoch']
+#best_eval = 0.26033
+
+losses = {} # TODO: checkpoint issue
+#losses = pickle.load(open("losses.pkl", "rb"))
+
 while(True):
     epoch+=1
     total_loss = 0.0
