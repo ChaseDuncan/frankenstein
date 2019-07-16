@@ -6,6 +6,7 @@ import numpy as np
 from configparser import SafeConfigParser
 
 import pickle
+import json
 
 from tqdm import tqdm
 from utils import dice_score
@@ -15,12 +16,13 @@ from model.btseg import BraTSSegmentation
 from datasets.data_loader import BraTSDataset
 
 config = SafeConfigParser()
-config.read("config/test.cfg")
+config.read("config/all_modes.cfg")
 
 deterministic_train = config.getboolean('train_params', 'deterministic_train')
 train_split = config.getfloat('train_params', 'train_split')
 data_dir = config.get('data', 'data_dir')
 model_name = config.get('meta', 'model_name')
+modes = json.loads(config.get('data', 'modes'))
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
@@ -37,6 +39,7 @@ if deterministic_train:
 # TODO: Doesn't really seem to belong here. Make a new
 # class for handling this or push it to the dataloader?
 np.random.shuffle(data_indices)
+
 split_idx = int(num_examples*train_split)
 train_sampler = sampler.SubsetRandomSampler(data_indices[:split_idx])
 test_sampler = sampler.SubsetRandomSampler(data_indices[split_idx:])
@@ -49,7 +52,8 @@ testloader = DataLoader(brats_data,
 if deterministic_train:
     torch.manual_seed(0)
 
-model = BraTSSegmentation(input_channels=2) 
+input_channels = len(modes)
+model = BraTSSegmentation(input_channels) 
 
 # TODO: continue training from checkpoint
 #checkpoint = torch.load('checkpoints/test')
@@ -58,7 +62,7 @@ model = BraTSSegmentation(input_channels=2)
 model = model.to(device)
 loss = DiceLoss()
 
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.1)
 best_loss = 1.0
 
 epoch = 0
@@ -92,23 +96,6 @@ while(True):
     avg_train_loss = total_loss / num_examples
 
     sum_test_dice = torch.zeros(3)
-    
-    pickle.dump(losses, open("losses.pkl", "wb"))
-    model.eval()
-
-    with torch.no_grad():
-        for test_ex in tqdm(testloader):
-            test_src, test_target = test_ex
-            test_src = test_src.to(device, dtype=torch.float)
-            test_target = test_target.to(device, dtype=torch.float)
-            test_output = model(test_src)
-            sum_test_dice += dice_score(test_output, test_target).cpu()
-
-    avg_eval_dice_by_class = sum_test_dice / len(testloader)
-
-    print("Saving model after training epoch {}. Average train loss: {} \
-            Average eval Dice: {}".format(epoch, avg_train_loss, 
-                avg_eval_dice_by_class))
 
     torch.save({'epoch': epoch, 
         'loss': avg_train_loss, 
