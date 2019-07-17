@@ -97,7 +97,17 @@ while(True):
 
     avg_train_loss = total_loss / num_examples
 
-    sum_test_dice = torch.zeros(3)
+    pickle.dump(losses, open("losses.pkl", "wb"))
+    model.eval()
+    with torch.no_grad():
+        for test_ex in tqdm(testloader):
+            test_src, test_target = test_ex
+            test_src = test_src.to(device, dtype=torch.float)
+            test_target = test_target.to(device, dtype=torch.float)
+            test_output = model(test_src)
+            sum_test_dice += dice_score(test_output, test_target).cpu()
+
+    avg_eval_dice_by_class = sum_test_dice / len(testloader)
 
     torch.save({'epoch': epoch, 
         'loss': avg_train_loss, 
