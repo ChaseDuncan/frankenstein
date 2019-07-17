@@ -58,7 +58,9 @@ model = BraTSSegmentation(input_channels=2)
 model = model.to(device)
 loss = DiceLoss()
 
+#optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.1)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
+#optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.1)
 best_loss = 1.0
 
 epoch = 0

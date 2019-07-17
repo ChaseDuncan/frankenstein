@@ -7,7 +7,7 @@ def dice_score(preds, targets):
             [preds.squeeze(), preds.squeeze()]) +\
                 torch.einsum('cijk, cijk -> c', \
                 [targets.squeeze(), targets.squeeze()])
-    avg_dice = num_vec / denom
-    return avg_dice
+    dice = num_vec / denom
+    return dice
 
 

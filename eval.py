@@ -39,9 +39,10 @@ testloader = DataLoader(brats_data,
 model = BraTSSegmentation(input_channels=2) 
 
 # TODO: continue training from checkpoint
-checkpoint = torch.load('checkpoints/best_test')
+checkpoint = torch.load('checkpoints/test')
 model.load_state_dict(checkpoint['model_state_dict'])
 
+import pdb; pdb.set_trace()
 model = model.to(device)
 
 model.eval()
