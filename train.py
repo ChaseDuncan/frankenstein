@@ -110,6 +110,10 @@ while(True):
 
     avg_eval_dice_by_class = sum_test_dice / len(testloader)
 
+    print("Saving model after training epoch {}. Average train loss: {} \
+                        Average eval Dice: {}".format(epoch, avg_train_loss, 
+                                            avg_eval_dice_by_class))
+
     torch.save({'epoch': epoch, 
         'loss': avg_train_loss, 
         'eval': avg_eval_dice_by_class,
@@ -128,7 +132,7 @@ while(True):
                 
     best_eval = avg_eval_dice
 
-    if best_eval > 0.80 or epoch > 999: # TODO: better stopping criteria. Convergence threshold?
+    if best_eval > 0.80 or epoch > 30: # TODO: better stopping criteria. Convergence threshold?
         break
 
 print("Training complete.")
