@@ -99,6 +99,7 @@ while(True):
 
     pickle.dump(losses, open("losses.pkl", "wb"))
     model.eval()
+    sum_test_dice = 0.0
     with torch.no_grad():
         for test_ex in tqdm(testloader):
             test_src, test_target = test_ex
