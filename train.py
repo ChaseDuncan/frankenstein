@@ -3,14 +3,17 @@ import torch.optim as optim
 import torch.utils.data.sampler as sampler
 import numpy as np
 
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 
 import pickle
 import json
 import argparse
 
 from tqdm import tqdm
-from utils import dice_score
+from utils import (
+        dice_score, 
+        parse_config
+        )
 from torch.utils.data import DataLoader
 from losses.dice import DiceLoss
 from model.btseg import BraTSSegmentation
@@ -20,14 +23,7 @@ parser = argparse.ArgumentParser(description='Train MRI segmentation model.')
 parser.add_argument('--config')
 args = parser.parse_args()
 
-config = SafeConfigParser()
-config.read(args.config)
-
-deterministic_train = config.getboolean('train_params', 'deterministic_train')
-train_split = config.getfloat('train_params', 'train_split')
-data_dir = config.get('data', 'data_dir')
-model_name = config.get('meta', 'model_name')
-modes = json.loads(config.get('data', 'modes'))
+config = parse_confit(args.config)
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
