@@ -3,6 +3,7 @@ import os
 import numpy as np
 import nibabel as nib
 import torch
+from torchvision import transforms
 from torch.utils.data import Dataset
 
 class BraTSDataset(Dataset):
@@ -30,23 +31,49 @@ class BraTSDataset(Dataset):
     def __getitem__(self, idx):
         data = []
         # open image and apply transform if applicable
+
+        # TODO: move cropping out
         if 't1' in self.modes: 
-            data.append(self.transform(nib.load(self.t1[idx]).get_fdata()))
+            t1 = self.transform(nib.load(self.t1[idx]).get_fdata())
+            t1 = t1[56:-56, 56:-56, 14:-13]
+            t1 = torch.from_numpy(t1)
+            t1_mean = torch.mean(t1)
+            t1_std = torch.std(t1)
+            t1_trans = transforms.Normalize(t1, t1_mean, t1_std)
+            data.append(t1)
+
         if 't1ce' in self.modes:
-            data.append(self.transform(nib.load(self.t1ce[idx]).get_fdata()))
+            t1ce = self.transform(nib.load(self.t1ce[idx]).get_fdata())
+            t1ce = t1ce[56:-56, 56:-56, 14:-13]
+            t1ce = torch.from_numpy(t1ce)
+            t1ce_mean = torch.mean(t1ce)
+            t1ce_std = torch.std(t1ce)
+            t1ce_trans = transforms.Normalize(t1ce, t1ce_mean, t1ce_std)
+
+            data.append(t1ce)
+
         if 't2' in self.modes:
-            data.append(self.transform(nib.load(self.t2[idx]).get_fdata()))
+            t2 = self.transform(nib.load(self.t2[idx]).get_fdata())
+            t2 = t2[56:-56, 56:-56, 14:-13]
+            t2 = torch.from_numpy(t2)
+            t2_mean = torch.mean(t2)
+            t2_std = torch.std(t2)
+            t2_trans = transforms.Normalize(t2, t2_mean, t2_std)
+
+            data.append(t2_trans)
+
         if 'flair' in self.modes:
-            data.append(self.transform(nib.load(self.flair[idx]).get_fdata()))
+            flair = self.transform(nib.load(self.flair[idx]).get_fdata())
+            flair = flair[56:-56, 56:-56, 14:-13]
+            flair = torch.from_numpy(flair)
+            flair_mean = torch.mean(flair)
+            flair_std = torch.std(flair)
+            flair_trans = transforms.Normalize(flair, flair_mean, flair_std)
+
+            data.append(flair_trans)
 
         seg = nib.load(self.segs[idx]).get_fdata()
 
-        # TODO: move this out
-        #img_t1 = img_t1[56:-56, 56:-56, 14:-13]  
-        #img_t1ce = img_t1ce[56:-56, 56:-56, 14:-13]  
-        #img_t2 = img_t2[56:-56, 56:-56, 14:-13]  
-        #img_flair = img_flair[56:-56, 56:-56, 14:-13]  
-        data = [d[56:-56, 56:-56, 14:-13] for d in data] 
         seg = seg[56:-56, 56:-56, 14:-13]  
 
         seg_et = np.zeros(seg.shape)
@@ -56,9 +83,9 @@ class BraTSDataset(Dataset):
         seg_wt = np.zeros(seg.shape)
         seg_wt[np.where(seg>0)] = 1
 
-        src = np.stack(data)
+        src = torch.stack(data)
         target = np.stack((seg_et, seg_tc, seg_wt))
 
-        return torch.from_numpy(src), torch.from_numpy(target)
+        return src, torch.from_numpy(target)
 
 

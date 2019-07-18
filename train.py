@@ -7,6 +7,7 @@ from configparser import SafeConfigParser
 
 import pickle
 import json
+import argparse
 
 from tqdm import tqdm
 from utils import dice_score
@@ -15,8 +16,12 @@ from losses.dice import DiceLoss
 from model.btseg import BraTSSegmentation
 from datasets.data_loader import BraTSDataset
 
+parser = argparse.ArgumentParser(description='Train MRI segmentation model.')
+parser.add_argument('--config')
+args = parser.parse_args()
+
 config = SafeConfigParser()
-config.read("config/all_modes.cfg")
+config.read(args.config)
 
 deterministic_train = config.getboolean('train_params', 'deterministic_train')
 train_split = config.getfloat('train_params', 'train_split')
@@ -27,7 +32,7 @@ modes = json.loads(config.get('data', 'modes'))
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-brats_data = BraTSDataset(data_dir)
+brats_data = BraTSDataset(data_dir, modes=modes)
 num_examples = len(brats_data)
 data_indices = np.arange(num_examples)
 # TODO: Make checkpoints dir if doesn't exist
