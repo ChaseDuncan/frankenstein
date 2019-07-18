@@ -3,8 +3,6 @@ import torch.optim as optim
 import torch.utils.data.sampler as sampler
 import numpy as np
 
-from configparser import ConfigParser
-
 import pickle
 import json
 import argparse
@@ -12,7 +10,7 @@ import argparse
 from tqdm import tqdm
 from utils import (
         dice_score, 
-        parse_config
+        MRISegConfigParser
         )
 from torch.utils.data import DataLoader
 from losses.dice import DiceLoss
@@ -23,25 +21,26 @@ parser = argparse.ArgumentParser(description='Train MRI segmentation model.')
 parser.add_argument('--config')
 args = parser.parse_args()
 
-config = parse_confit(args.config)
+config = MRISegConfigParser(args.config)
+modes = json.loads(config.modes)
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-brats_data = BraTSDataset(data_dir, modes=modes)
+brats_data = BraTSDataset(config.data_dir, modes=modes)
 num_examples = len(brats_data)
 data_indices = np.arange(num_examples)
 # TODO: Make checkpoints dir if doesn't exist
 
 # Fix stochasticity in data sampling
-if deterministic_train:
+if config.deterministic_train:
     np.random.seed(0)
 
 # TODO: Doesn't really seem to belong here. Make a new
 # class for handling this or push it to the dataloader?
 np.random.shuffle(data_indices)
 
-split_idx = int(num_examples*train_split)
+split_idx = int(num_examples*config.train_split)
 train_sampler = sampler.SubsetRandomSampler(data_indices[:split_idx])
 test_sampler = sampler.SubsetRandomSampler(data_indices[split_idx:])
 trainloader = DataLoader(brats_data, 
@@ -50,7 +49,7 @@ testloader = DataLoader(brats_data,
         batch_size=1, sampler=test_sampler)
 
 # Fix stochasticity in model params, etc.
-if deterministic_train:
+if config.deterministic_train:
     torch.manual_seed(0)
 
 input_channels = len(modes)
@@ -64,7 +63,7 @@ model = model.to(device)
 loss = DiceLoss()
 
 #optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.1)
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=config.weight_decay)
 #optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.1)
 best_loss = 1.0
 
@@ -120,7 +119,7 @@ while(True):
         'eval': avg_eval_dice_by_class,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict()},
-        'checkpoints/'+ model_name)
+        'checkpoints/'+ config.model_name)
 
     avg_eval_dice = torch.sum(avg_eval_dice_by_class) / 3
     if avg_eval_dice > best_eval:
@@ -129,7 +128,7 @@ while(True):
             'eval': avg_eval_dice,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict()},
-            'checkpoints/'+ 'best_' +model_name)
+            'checkpoints/'+ 'best_' + config.model_name)
                 
     best_eval = avg_eval_dice
 

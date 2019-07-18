@@ -3,7 +3,7 @@ import os
 import numpy as np
 import nibabel as nib
 import torch
-from torchvision import transforms
+import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset
 
 class BraTSDataset(Dataset):
@@ -38,27 +38,34 @@ class BraTSDataset(Dataset):
             t1 = t1[56:-56, 56:-56, 14:-13]
             t1 = torch.from_numpy(t1)
             t1_mean = torch.mean(t1)
+            means = [t1_mean]*t1.shape[0]
             t1_std = torch.std(t1)
-            t1_trans = transforms.Normalize(t1, t1_mean, t1_std)
-            data.append(t1)
+            stds = [t1_std]*t1.shape[0]
+            t1_trans = TF.normalize(t1, means, stds)
+
+            data.append(t1_trans)
 
         if 't1ce' in self.modes:
             t1ce = self.transform(nib.load(self.t1ce[idx]).get_fdata())
             t1ce = t1ce[56:-56, 56:-56, 14:-13]
             t1ce = torch.from_numpy(t1ce)
             t1ce_mean = torch.mean(t1ce)
+            means = [t1ce_mean]*t1ce.shape[0]
             t1ce_std = torch.std(t1ce)
-            t1ce_trans = transforms.Normalize(t1ce, t1ce_mean, t1ce_std)
+            stds = [t1ce_std]*t1ce.shape[0]
+            t1ce_trans = TF.normalize(t1ce, means, stds)
 
-            data.append(t1ce)
+            data.append(t1ce_trans)
 
         if 't2' in self.modes:
             t2 = self.transform(nib.load(self.t2[idx]).get_fdata())
             t2 = t2[56:-56, 56:-56, 14:-13]
             t2 = torch.from_numpy(t2)
             t2_mean = torch.mean(t2)
+            means = [t2_mean]*t2.shape[0]
             t2_std = torch.std(t2)
-            t2_trans = transforms.Normalize(t2, t2_mean, t2_std)
+            stds = [t2_std]*t2.shape[0]
+            t2_trans = TF.normalize(t2, means, stds)
 
             data.append(t2_trans)
 
@@ -67,8 +74,10 @@ class BraTSDataset(Dataset):
             flair = flair[56:-56, 56:-56, 14:-13]
             flair = torch.from_numpy(flair)
             flair_mean = torch.mean(flair)
+            means = [flair_mean]*flair.shape[0]
             flair_std = torch.std(flair)
-            flair_trans = transforms.Normalize(flair, flair_mean, flair_std)
+            stds = [flair_std]*flair.shape[0]
+            flair_trans = TF.normalize(flair, means, stds)
 
             data.append(flair_trans)
 
