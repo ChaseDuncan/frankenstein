@@ -4,11 +4,11 @@ from configparser import ConfigParser
 
 def dice_score(preds, targets):
     num_vec = 2*torch.einsum('cijk, cijk ->c', \
-            [preds.squeeze(), targets.squeeze()])
+            [preds.squeeze(0), targets.squeeze(0)])
     denom = torch.einsum('cijk, cijk -> c', \
-            [preds.squeeze(), preds.squeeze()]) +\
+            [preds.squeeze(0), preds.squeeze(0)]) +\
             torch.einsum('cijk, cijk -> c', \
-            [targets.squeeze(), targets.squeeze()])
+            [targets.squeeze(0), targets.squeeze(0)])
     dice = num_vec / denom
     return dice
 
@@ -34,5 +34,4 @@ def save_model(name, epoch, avg_train_losses, eval_dice, model, optimizer):
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict()},
             'checkpoints/'+ name)
-
 
