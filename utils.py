@@ -25,6 +25,7 @@ class MRISegConfigParser():
         self.data_dir = config.get('data', 'data_dir')
         self.model_name = config.get('meta', 'model_name')
         self.modes = json.loads(config.get('data', 'modes'))
+        self.labels = json.loads(config.get('data', 'labels'))
 
 def save_model(name, epoch, avg_train_losses, eval_dice, model, optimizer):
         torch.save({'epoch': epoch, 

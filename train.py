@@ -26,7 +26,7 @@ config = MRISegConfigParser(args.config)
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
-brats_data = BraTSDataset(config.data_dir, modes=config.modes)
+brats_data = BraTSDataset(config.data_dir, config.labels, modes=config.modes)
 # TODO: Make checkpoints dir if doesn't exist
 
 def CV(dataset, batch_size=1, k = 5, deterministic_train=False):
@@ -50,6 +50,7 @@ def CV(dataset, batch_size=1, k = 5, deterministic_train=False):
         cv_testloader.append(DataLoader(dataset, 
             batch_size, sampler=sampler.SubsetRandomSampler(test_fold)))
     return cv_trainloader, cv_testloader
+
 
 def train(model, optimizer, train_data_loader, test_data_loader, max_epoch, 
         name="default", best_eval=0.0, epoch=0):
@@ -114,7 +115,8 @@ for i, (trainloader, testloader) in enumerate(zip(cv_trainloaders, cv_testloader
         torch.manual_seed(0)
 
     input_channels = len(config.modes)
-    model = BraTSSegmentation(input_channels) 
+    output_channels = len(config.labels)
+    model = BraTSSegmentation(input_channels, output_channels) 
 
     model = model.to(device)
     loss = DiceLoss()

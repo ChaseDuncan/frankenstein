@@ -7,7 +7,7 @@ import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset
 
 class BraTSDataset(Dataset):
-    def __init__(self, data_dir, modes=['t1', 't1ce', 't2', 'flair'], transform=lambda x: x):
+    def __init__(self, data_dir, labels, modes=['t1', 't1ce', 't2', 'flair'], transform=lambda x: x):
         # store filenames. expects data_dir/{HGG, LGG}/
         # TODO: should HGG and LGG be separated?
         self.filenames = \
@@ -84,16 +84,23 @@ class BraTSDataset(Dataset):
         seg = nib.load(self.segs[idx]).get_fdata()
 
         seg = seg[56:-56, 56:-56, 14:-13]  
-
-        seg_et = np.zeros(seg.shape)
-        seg_et[np.where(seg==4)] = 1
-        seg_tc = np.zeros(seg.shape)
-        seg_tc[np.where(seg==1) or np.where(seg==4)] = 1
-        seg_wt = np.zeros(seg.shape)
-        seg_wt[np.where(seg>0)] = 1
+        
+        segs = []
+        if "enhancing_tumor" in self.labels:
+            seg_et = np.zeros(seg.shape)
+            seg_et[np.where(seg==4)] = 1
+            segs.append(seg_et)
+        if "tumor_core" in self.labels:
+            seg_tc = np.zeros(seg.shape)
+            seg_tc[np.where(seg==1) or np.where(seg==4)] = 1
+            segs.append(seg_tc)
+        if "whole_tumor" in self.labels:
+            seg_wt = np.zeros(seg.shape)
+            seg_wt[np.where(seg>0)] = 1
+            segs.append(seg_wt)
 
         src = torch.stack(data)
-        target = np.stack((seg_et, seg_tc, seg_wt))
+        target = np.stack(segs)
 
         return src, torch.from_numpy(target)
 

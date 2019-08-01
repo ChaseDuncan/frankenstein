@@ -68,7 +68,7 @@ class CompressFeatures(nn.Module):
 
 
 class BraTSSegmentation(nn.Module):
-    def __init__(self, input_channels=4):
+    def __init__(self, input_channels=4, output_channels=3):
         super(BraTSSegmentation, self).__init__()
         # channels_in=4, channels_out=32
         self.up = UpsamplingBilinear3d()
@@ -93,7 +93,7 @@ class BraTSSegmentation(nn.Module):
         self.block10 = ResNetBlock(64) 
         self.cf3 = CompressFeatures(64, 32)
         self.block11 = ResNetBlock(32)
-        self.cf_final = CompressFeatures(32, 3)
+        self.cf_final = CompressFeatures(32, output_channels)
 
     def forward(self, x):
         # sp* is the state of the output at each spatial level
