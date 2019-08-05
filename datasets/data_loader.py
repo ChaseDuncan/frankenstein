@@ -22,6 +22,7 @@ class BraTSDataset(Dataset):
         self.flair = sorted([ f for f in self.filenames if "flair.nii.gz" in f ])
         self.segs = sorted([ f for f in self.filenames if "seg.nii.gz" in f ])
         self.modes = modes
+        self.labels = labels
         self.transform = transform
 
     def __len__(self):
@@ -101,7 +102,6 @@ class BraTSDataset(Dataset):
 
         src = torch.stack(data)
         target = np.stack(segs)
-
         return src, torch.from_numpy(target)
 
 

@@ -46,9 +46,9 @@ def CV(dataset, batch_size=1, k = 5, deterministic_train=False):
         train_folds = np.hstack(folds[~mask])
         test_fold = folds[mask][0]
         cv_trainloader.append(DataLoader(dataset, 
-            batch_size, sampler=sampler.SubsetRandomSampler(train_folds)))
+            batch_size, num_workers=8, sampler=sampler.SubsetRandomSampler(train_folds)))
         cv_testloader.append(DataLoader(dataset, 
-            batch_size, sampler=sampler.SubsetRandomSampler(test_fold)))
+            batch_size, num_workers=8, sampler=sampler.SubsetRandomSampler(test_fold)))
     return cv_trainloader, cv_testloader
 
 
@@ -99,7 +99,6 @@ def train(model, optimizer, train_data_loader, test_data_loader, max_epoch,
             best_dice_by_class = eval_dice
 
         best_eval = avg_eval_dice
-
         if epoch > max_epoch: # TODO: better stopping criteria. Convergence threshold?
             break
 
@@ -128,5 +127,6 @@ for i, (trainloader, testloader) in enumerate(zip(cv_trainloaders, cv_testloader
             optim.Adam(model.parameters(), lr=1e-4, weight_decay=config.weight_decay)
     train(model, optimizer, trainloader, testloader, config.max_epochs,
         name=model_name, best_eval=0.0, epoch=0)
+    break
 
 
