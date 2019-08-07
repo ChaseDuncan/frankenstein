@@ -73,7 +73,6 @@ class BraTSSegmentation(nn.Module):
         # channels_in=4, channels_out=32
         self.up = UpsamplingBilinear3d()
         self.sig = nn.Sigmoid()
-        # TODO: dimensions are wrong!
         self.initConv = nn.Conv3d(input_channels, 32, kernel_size=3, stride=1, padding=1)
         self.block0 = ResNetBlock(32)
         self.ds1 = DownSampling(32)

@@ -85,7 +85,6 @@ class BraTSDataset(Dataset):
         seg = nib.load(self.segs[idx]).get_fdata()
 
         seg = seg[56:-56, 56:-56, 14:-13]  
-        
         segs = []
         if "enhancing_tumor" in self.labels:
             seg_et = np.zeros(seg.shape)

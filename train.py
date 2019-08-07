@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 import torch.utils.data.sampler as sampler
 import numpy as np
-
+import torchsummary
 import pickle
 import argparse
 
@@ -17,6 +17,7 @@ from losses.dice import DiceLoss
 from model.btseg import BraTSSegmentation
 from datasets.data_loader import BraTSDataset
 
+random_seed = 0
 parser = argparse.ArgumentParser(description='Train MRI segmentation model.')
 parser.add_argument('--config')
 args = parser.parse_args()
@@ -27,13 +28,13 @@ use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
 brats_data = BraTSDataset(config.data_dir, config.labels, modes=config.modes)
-# TODO: Make checkpoints dir if doesn't exist
 
+# TODO: Make checkpoints dir if doesn't exist
 def CV(dataset, batch_size=1, k = 5, deterministic_train=False):
     num_examples = len(brats_data)
     data_indices = np.arange(num_examples)
     if config.deterministic_train:
-        np.random.seed(0)
+        np.random.seed(random_seed)
     np.random.shuffle(data_indices)
     folds = np.array(np.split(data_indices, k))
 
@@ -64,6 +65,7 @@ def train(model, optimizer, train_data_loader, test_data_loader, max_epoch,
         for train_ex in tqdm(trainloader):
             optimizer.zero_grad()
             src, target = train_ex
+            #torchsummary.summary(model, input_size=(src.shape[1], src.shape[2], src.shape[3], src.shape[4]))
             src = src.to(device, dtype=torch.float)
             target = target.to(device, dtype=torch.float)
             output = model(src)
@@ -105,18 +107,18 @@ def train(model, optimizer, train_data_loader, test_data_loader, max_epoch,
     print("Training complete.")
     return best_dice_by_class
 
-cv_trainloaders, cv_testloaders = CV(brats_data, deterministic_train=config.deterministic_train)
+cv_trainloaders, cv_testloaders = CV(brats_data, batch_size=1, deterministic_train=config.deterministic_train)
 
 # Fix stochasticity in model params, etc.
 
 for i, (trainloader, testloader) in enumerate(zip(cv_trainloaders, cv_testloaders)):
     if config.deterministic_train:
-        torch.manual_seed(0)
+        torch.manual_seed(random_seed)
 
     input_channels = len(config.modes)
     output_channels = len(config.labels)
+    #output_channels = 3
     model = BraTSSegmentation(input_channels, output_channels) 
-
     model = model.to(device)
     loss = DiceLoss()
 
@@ -127,6 +129,8 @@ for i, (trainloader, testloader) in enumerate(zip(cv_trainloaders, cv_testloader
             optim.Adam(model.parameters(), lr=1e-4, weight_decay=config.weight_decay)
     train(model, optimizer, trainloader, testloader, config.max_epochs,
         name=model_name, best_eval=0.0, epoch=0)
+
+    # TODO: only training and testing on 1 fold
     break
 
 
