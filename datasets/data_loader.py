@@ -86,6 +86,9 @@ class BraTSDataset(Dataset):
 
         seg = seg[56:-56, 56:-56, 14:-13]  
         segs = []
+        # See part E. of the BraTS reference
+        # https://ieeexplore.ieee.org/document/6975210
+        # for how these labels are derived from the annotations.
         if "enhancing_tumor" in self.labels:
             seg_et = np.zeros(seg.shape)
             seg_et[np.where(seg==4)] = 1
@@ -98,6 +101,10 @@ class BraTSDataset(Dataset):
             seg_wt = np.zeros(seg.shape)
             seg_wt[np.where(seg>0)] = 1
             segs.append(seg_wt)
+        if "enhancing_core" in self.labels:
+            seg_tc = np.zeros(seg.shape)
+            seg_tc[np.where(seg==1)] = 1
+            segs.append(seg_tc)
 
         src = torch.stack(data)
         target = np.stack(segs)

@@ -104,6 +104,8 @@ ENV/
 data/
 input/
 saved/
+scratch/
+checkpoints/
 
 # editor, os cache directory
 .vscode/

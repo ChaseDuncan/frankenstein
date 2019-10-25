@@ -44,7 +44,6 @@ class DownSampling(nn.Module):
         return self.conv3x3x3(x)
 
 
-# TODO: figure out the upsampling part.
 # "Each decoder level begins with upsizing: reducing the number
 # of features by a factor of 2 (using 1x1x1 convolutions) and doubling the spatial
 # dimension (using 3D bilinear upsampling), followed by an addition of encoder
