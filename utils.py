@@ -40,11 +40,13 @@ def save_model(name, epoch, avg_train_losses, eval_dice, model, optimizer):
             'optimizer_state_dict': optimizer.state_dict()},
             'checkpoints/'+ name)
 
-def cross_validation(dataset, batch_size=1, k = 5, deterministic_train=False, random_seed=0):
+def load_data(dataset):
+    cv_trainloader, cv_testloader = cross_validation(dataset)
+    return cv_trainloader[0], cv_testloader[0]
+
+def cross_validation(dataset, batch_size=1, k = 5):
     num_examples = len(dataset)
     data_indices = np.arange(num_examples)
-    if deterministic_train:
-        np.random.seed(random_seed)
     np.random.shuffle(data_indices)
     folds = np.array(np.split(data_indices, k))
 

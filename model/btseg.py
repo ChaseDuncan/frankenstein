@@ -53,6 +53,22 @@ class UpsamplingBilinear3d(nn.modules.Upsample):
         super(UpsamplingBilinear3d, self).__init__(size, scale_factor, 
 						mode='trilinear', align_corners=True)
 
+# Taken from: https://github.com/pytorch/pytorch/issues/12207#issuecomment-504729632
+# Maybe adapt?
+#class UpsampleDeterministic(nn.Module):
+#    def __init__(self,upscale=2):
+#        super(UpsampleDeterministic, self).__init__()
+#        self.upscale = upscale
+#
+#    def forward(self, x):
+#        '''
+#        x: 4-dim tensor. shape is (batch,channel,h,w)
+#        output: 4-dim tensor. shape is (batch,channel,self.upscale*h,self.upscale*w)
+#        '''
+#        return x[:, :, :, None, :, None].expand(-1, -1, -1, self.upscale, -1, self.upscale)
+#	 .reshape(x.size(0), x.size(1), x.size(2)*self.upscale, x.size(3)*self.upscale)
+#
+
 class CompressFeatures(nn.Module):
     # Reduce the number of features by a factor of 2.
     # Assumes channels_in is power of 2.
