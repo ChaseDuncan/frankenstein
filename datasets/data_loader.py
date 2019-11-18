@@ -28,63 +28,96 @@ class BraTSDataset(Dataset):
     def __len__(self):
         # return size of dataset
         return len(self.t1)
+    def data_aug(self, brain):
+        shift_brain = brain + torch.Tensor(np.random.uniform(-0.1, 0.1, brain.shape)).double().cuda()
+        scale_brain = shift_brain*torch.Tensor(np.random.uniform(0.9, 1.1, brain.shape)).double().cuda()
+        return scale_brain
 
     def __getitem__(self, idx):
         data = []
         # open image and apply transform if applicable
-
+        # print(self.modes) 4 types
         # TODO: move cropping out
+        a = np.random.rand(1)
+        if a > 0.5:
+            axis = np.random.choice([0, 1, 2], 1)[0]
+            # print('axis: ', axis)
         if 't1' in self.modes: 
-            t1 = self.transform(nib.load(self.t1[idx]).get_fdata())
+            # t1 = self.transform(nib.load(self.t1[idx]).get_fdata())
+            t1 = nib.load(self.t1[idx]).get_fdata()
             t1 = t1[56:-56, 56:-56, 14:-13]
+            if a > 0.5:
+                t1 = np.flip(t1, axis).copy()
+
             t1 = torch.from_numpy(t1)
             t1_mean = torch.mean(t1)
             means = [t1_mean]*t1.shape[0]
             t1_std = torch.std(t1)
             stds = [t1_std]*t1.shape[0]
             t1_trans = TF.normalize(t1, means, stds)
-
-            data.append(t1_trans)
+            t1_trans = t1_trans.cuda()
+            # data.append(t1_trans)
+            # print('type: ', type(t1_trans) , t1_trans.is_cuda)# print(aug_brain.max(), aug_brain.min(), t1_trans.max(), t1_trans.min())
+            aug_brain = self.data_aug(t1_trans)
+            data.append(aug_brain)
 
         if 't1ce' in self.modes:
             t1ce = self.transform(nib.load(self.t1ce[idx]).get_fdata())
+            # t1ce = nib.load(self.t1ce[idx]).get_fdata()
             t1ce = t1ce[56:-56, 56:-56, 14:-13]
+            if a > 0.5:
+                t1ce = np.flip(t1ce, axis).copy()
+
             t1ce = torch.from_numpy(t1ce)
             t1ce_mean = torch.mean(t1ce)
             means = [t1ce_mean]*t1ce.shape[0]
             t1ce_std = torch.std(t1ce)
             stds = [t1ce_std]*t1ce.shape[0]
-            t1ce_trans = TF.normalize(t1ce, means, stds)
-
-            data.append(t1ce_trans)
+            t1ce_trans = TF.normalize(t1ce, means, stds).cuda()
+            aug_brain = self.data_aug(t1ce_trans)
+            data.append(aug_brain)
 
         if 't2' in self.modes:
             t2 = self.transform(nib.load(self.t2[idx]).get_fdata())
+            # t2 = nib.load(self.t2[idx]).get_fdata()
             t2 = t2[56:-56, 56:-56, 14:-13]
+            if a > 0.5:
+                t2 = np.flip(t2, axis).copy()
+
             t2 = torch.from_numpy(t2)
             t2_mean = torch.mean(t2)
             means = [t2_mean]*t2.shape[0]
             t2_std = torch.std(t2)
             stds = [t2_std]*t2.shape[0]
-            t2_trans = TF.normalize(t2, means, stds)
+            t2_trans = TF.normalize(t2, means, stds).cuda()
+            # data.append(t2_trans)
 
-            data.append(t2_trans)
+            aug_brain = self.data_aug(t2_trans)
+            data.append(aug_brain)
 
         if 'flair' in self.modes:
             flair = self.transform(nib.load(self.flair[idx]).get_fdata())
+            # flair = nib.load(self.flair[idx]).get_fdata()
             flair = flair[56:-56, 56:-56, 14:-13]
+            if a > 0.5:
+                flair = np.flip(flair, axis).copy()
+
             flair = torch.from_numpy(flair)
             flair_mean = torch.mean(flair)
             means = [flair_mean]*flair.shape[0]
             flair_std = torch.std(flair)
             stds = [flair_std]*flair.shape[0]
-            flair_trans = TF.normalize(flair, means, stds)
-
-            data.append(flair_trans)
+            flair_trans = TF.normalize(flair, means, stds).cuda()
+            # data.append(flair_trans)
+            aug_brain = self.data_aug(flair_trans)
+            data.append(aug_brain)
 
         seg = nib.load(self.segs[idx]).get_fdata()
 
-        seg = seg[56:-56, 56:-56, 14:-13]  
+        seg = seg[56:-56, 56:-56, 14:-13]
+        if a > 0.5:
+            seg = np.flip(seg, axis)
+
         segs = []
         # See part E. of the BraTS reference
         # https://ieeexplore.ieee.org/document/6975210
