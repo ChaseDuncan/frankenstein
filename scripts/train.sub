@@ -1,0 +1,9 @@
+Executable   = scripts/train.sh
+Log          = nvidia-smi.log
+Output       = nvidia-smi.stdout
+Error        = nvidia-smi.stderr
+
+requirements = Machine=="vision-02.cs.illinois.edu"
+Request_cpus = 2
+request_gpus = 1
+Queue

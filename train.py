@@ -6,12 +6,12 @@ import pickle
 import argparse
 import random
 from utils import (
-        dice_score, 
-        MRISegConfigParser,
-        save_model,
-        load_data,
-        train
-        )
+    dice_score, 
+    MRISegConfigParser,
+    save_model,
+    load_data,
+    train
+    )
 from torch.utils.data import DataLoader
 from losses.dice import DiceLoss
 from model import btseg_bilinear
@@ -31,59 +31,56 @@ python train.py --config ./config/test.cfg --model_name ./checkpoints_2branch/ -
 
 parser = argparse.ArgumentParser(description='Train MRI segmentation model.')
 parser.add_argument('--config')
-parser.add_argument('--gpu', type=str)
-parser.add_argument('--model_name', type=str)
-parser.add_argument('--upsampling', type=str, default='deconv', choices=['bilinear', 'deconv'])
+#parser.add_argument('--gpu', type=str)
+parser.add_argument('--upsampling', type=str, default='bilinear', choices=['bilinear', 'deconv'])
 args = parser.parse_args()
 config = MRISegConfigParser(args.config)
-from pprint import pprint
-pprint(vars(args))
 
 import os
-if not os.path.exists(args.model_name):
-    print('[INFO] Make dir %s' % args.model_name)
-    os.mkdir(args.model_name)
+if not os.path.exists('checkpoints'):
+  print('[INFO] Make dir %s' % 'checkpoints')
+  os.mkdir('checkpoints')
+
+if not os.path.exists('checkpoints/' + config.model_name):
+  print('[INFO] Make dir %s' % 'checkpoints/' + config.model_name)
+  os.mkdir('checkpoints/' + config.model_name)
 
 if config.deterministic_train:
-    seed = 0
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.manual_seed(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
+  seed = 0
+  torch.manual_seed(seed)
+  torch.cuda.manual_seed(seed)
+  np.random.seed(seed)
+  random.seed(seed)
+  torch.manual_seed(seed)
+  torch.backends.cudnn.benchmark = False
+  torch.backends.cudnn.deterministic = True
 
-os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+# Vision FAQ explicitly asks not to do this.
+# os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
-# from multiprocessing import set_start_method
-# try:
-#     set_start_method('spawn')
-# except RuntimeError:
-#     pass
 
 brats_data = BraTSDataset(config.data_dir, config.labels, modes=config.modes)
 
 trainloader, testloader = load_data(brats_data)
 
-
 input_channels = len(config.modes)
 output_channels = len(config.labels)
 
 if args.upsampling == 'bilinear':
-    model = btseg_bilinear.BraTSSegmentation(input_channels, output_channels)
+  model = btseg_bilinear.BraTSSegmentation(input_channels, output_channels)
 elif args.upsampling == 'deconv':
-    model = BraTSSegmentation(input_channels, output_channels)
+  model = BraTSSegmentation(input_channels, output_channels)
 else:
-    raise('ERROR')
+  raise('ERROR')
 
 model = model.to(device)
 #optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.1)
 #optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.1)
 # model_name = config.model_name
 optimizer = \
-        optim.Adam(model.parameters(), lr=1e-4, weight_decay=config.weight_decay)
+    optim.Adam(model.parameters(), lr=1e-4, weight_decay=config.weight_decay)
 train(model, DiceLoss(), optimizer, trainloader, testloader, 
-        config.max_epochs, device, name=args.model_name)
+    config.max_epochs, device, name=config.model_name, checkpoint_dir='checkpoints')
 

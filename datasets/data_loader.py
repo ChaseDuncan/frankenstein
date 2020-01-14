@@ -7,7 +7,7 @@ import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset
 
 class BraTSDataset(Dataset):
-    def __init__(self, data_dir, labels, modes=['t1', 't1ce', 't2', 'flair'], transform=lambda x: x):
+    def __init__(self, data_dir, labels, modes=['t1', 't1ce', 't2', 'flair']):
         # store filenames. expects data_dir/{HGG, LGG}/
         # TODO: should HGG and LGG be separated?
         self.filenames = \
@@ -23,47 +23,50 @@ class BraTSDataset(Dataset):
         self.segs = sorted([ f for f in self.filenames if "seg.nii.gz" in f ])
         self.modes = modes
         self.labels = labels
-        self.transform = transform
 
     def __len__(self):
         # return size of dataset
         return len(self.t1)
+
     def data_aug(self, brain):
         shift_brain = brain + torch.Tensor(np.random.uniform(-0.1, 0.1, brain.shape)).double().cuda()
         scale_brain = shift_brain*torch.Tensor(np.random.uniform(0.9, 1.1, brain.shape)).double().cuda()
         return scale_brain
 
+    # TODO: mask brain
+    def bd_normalize(self, d):
+      ''' Subtract mean and divide by standard deviation of the image.'''
+      d = torch.from_numpy(d)
+      d_mean = torch.mean(d)
+      means = [d_mean]*d.shape[0]
+      d_std = torch.std(d)
+      stds = [d_std]*d.shape[0]
+      d_trans = TF.normalize(d, means, stds)
+      return d_trans
+
+
     def __getitem__(self, idx):
         data = []
         # open image and apply transform if applicable
-        # print(self.modes) 4 types
         # TODO: move cropping out
         a = np.random.rand(1)
+
+        # randomly flip along axis
         if a > 0.5:
             axis = np.random.choice([0, 1, 2], 1)[0]
-            # print('axis: ', axis)
+
         if 't1' in self.modes: 
-            # t1 = self.transform(nib.load(self.t1[idx]).get_fdata())
-            t1 = nib.load(self.t1[idx]).get_fdata()
+            t1 = self.transform(nib.load(self.t1[idx]).get_fdata())
             t1 = t1[56:-56, 56:-56, 14:-13]
             if a > 0.5:
                 t1 = np.flip(t1, axis).copy()
-
-            t1 = torch.from_numpy(t1)
-            t1_mean = torch.mean(t1)
-            means = [t1_mean]*t1.shape[0]
-            t1_std = torch.std(t1)
-            stds = [t1_std]*t1.shape[0]
-            t1_trans = TF.normalize(t1, means, stds)
-            t1_trans = t1_trans.cuda()
-            # data.append(t1_trans)
-            # print('type: ', type(t1_trans) , t1_trans.is_cuda)# print(aug_brain.max(), aug_brain.min(), t1_trans.max(), t1_trans.min())
+            
+            t1_trans = bd_normalize(t1).cuda()
             aug_brain = self.data_aug(t1_trans)
             data.append(aug_brain)
 
         if 't1ce' in self.modes:
             t1ce = self.transform(nib.load(self.t1ce[idx]).get_fdata())
-            # t1ce = nib.load(self.t1ce[idx]).get_fdata()
             t1ce = t1ce[56:-56, 56:-56, 14:-13]
             if a > 0.5:
                 t1ce = np.flip(t1ce, axis).copy()
@@ -79,7 +82,6 @@ class BraTSDataset(Dataset):
 
         if 't2' in self.modes:
             t2 = self.transform(nib.load(self.t2[idx]).get_fdata())
-            # t2 = nib.load(self.t2[idx]).get_fdata()
             t2 = t2[56:-56, 56:-56, 14:-13]
             if a > 0.5:
                 t2 = np.flip(t2, axis).copy()
@@ -90,14 +92,11 @@ class BraTSDataset(Dataset):
             t2_std = torch.std(t2)
             stds = [t2_std]*t2.shape[0]
             t2_trans = TF.normalize(t2, means, stds).cuda()
-            # data.append(t2_trans)
-
             aug_brain = self.data_aug(t2_trans)
             data.append(aug_brain)
 
         if 'flair' in self.modes:
             flair = self.transform(nib.load(self.flair[idx]).get_fdata())
-            # flair = nib.load(self.flair[idx]).get_fdata()
             flair = flair[56:-56, 56:-56, 14:-13]
             if a > 0.5:
                 flair = np.flip(flair, axis).copy()
@@ -108,7 +107,6 @@ class BraTSDataset(Dataset):
             flair_std = torch.std(flair)
             stds = [flair_std]*flair.shape[0]
             flair_trans = TF.normalize(flair, means, stds).cuda()
-            # data.append(flair_trans)
             aug_brain = self.data_aug(flair_trans)
             data.append(aug_brain)
 
@@ -142,5 +140,4 @@ class BraTSDataset(Dataset):
         src = torch.stack(data)
         target = np.stack(segs)
         return src, torch.from_numpy(target)
-
 

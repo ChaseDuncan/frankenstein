@@ -152,14 +152,9 @@ class BraTSSegmentation(nn.Module):
         sp2 = self.block10(sp2)
         sp1 = sp1 + self.up(self.cf3(sp2))
 
-        # sp3 = sp3 + self.up3(self.cf1(sp4))
-        # sp3 = self.block9(sp3)
-        # sp2 = sp2 + self.up2(self.cf2(sp3))
-        # sp2 = self.block10(sp2)
-        # sp1 = sp1 + self.up1(self.cf3(sp2))
-
         sp1 = self.block11(sp1)
         output = self.sig(self.cf_final(sp1))
+
         return output
 
 
