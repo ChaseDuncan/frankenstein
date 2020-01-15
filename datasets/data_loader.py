@@ -15,7 +15,6 @@ class BraTSDataset(Dataset):
         self.filenames.extend([ data_dir + "/LGG/" + f + "/"\
                 for f in os.listdir(data_dir + "/LGG/") ])
         self.filenames = [ f + d for f in self.filenames for d in os.listdir(f) ]
-        
         self.t1 = sorted([ f for f in self.filenames if "t1.nii.gz" in f ])
         self.t1ce = sorted([ f for f in self.filenames if "t1ce.nii.gz" in f ])
         self.t2 = sorted([ f for f in self.filenames if "t2.nii.gz" in f ])
@@ -28,22 +27,27 @@ class BraTSDataset(Dataset):
         # return size of dataset
         return len(self.t1)
 
+
     def data_aug(self, brain):
         shift_brain = brain + torch.Tensor(np.random.uniform(-0.1, 0.1, brain.shape)).double().cuda()
         scale_brain = shift_brain*torch.Tensor(np.random.uniform(0.9, 1.1, brain.shape)).double().cuda()
         return scale_brain
 
+
     # TODO: mask brain
-    def bd_normalize(self, d):
+    def std_normalize(self, d):
       ''' Subtract mean and divide by standard deviation of the image.'''
       d = torch.from_numpy(d)
-      return d.cuda()
       d_mean = torch.mean(d)
       means = [d_mean]*d.shape[0]
       d_std = torch.std(d)
       stds = [d_std]*d.shape[0]
       d_trans = TF.normalize(d, means, stds).cuda()
       return d_trans
+
+
+    def min_max_normalization(self, d):
+        return (d - d.min()) / (d.max() - d.min())
 
 
     def __getitem__(self, idx):
@@ -54,14 +58,15 @@ class BraTSDataset(Dataset):
         # randomly flip along axis
         if a > 0.5:
             axis = np.random.choice([0, 1, 2], 1)[0]
-
-        if 't1' in self.modes: 
+        # TODO: fix code smell.
+        if 't1' in self.modes:
             t1 = nib.load(self.t1[idx]).get_fdata()
             t1 = t1[56:-56, 56:-56, 14:-13]
             if a > 0.5:
                 t1 = np.flip(t1, axis).copy()
-            
-            t1_trans = self.bd_normalize(t1)
+
+            #t1_trans = self.std_normalize(t1)
+            t1_trans = self.min_max_normalize(t1)
             aug_brain = self.data_aug(t1_trans)
             data.append(aug_brain)
 
@@ -71,7 +76,8 @@ class BraTSDataset(Dataset):
             if a > 0.5:
                 t1ce = np.flip(t1ce, axis).copy()
 
-            t1ce_trans = self.bd_normalize(t1ce)
+            #t1ce_trans = self.std_normalize(t1ce)
+            t1ce_trans = self.min_max_normalize(t1ce)
             aug_brain = self.data_aug(t1ce_trans)
             data.append(aug_brain)
 
@@ -81,7 +87,9 @@ class BraTSDataset(Dataset):
             if a > 0.5:
                 t2 = np.flip(t2, axis).copy()
 
-            t2_trans = self.bd_normalize(t2)
+            #t2_trans = self.std_normalize(t2)
+            t2_trans = self.min_max_normalize(t2)
+
             aug_brain = self.data_aug(t2_trans)
             data.append(aug_brain)
 
@@ -91,7 +99,9 @@ class BraTSDataset(Dataset):
             if a > 0.5:
                 flair = np.flip(flair, axis).copy()
 
-            flair_trans = self.bd_normalize(flair)
+            #flair_trans = self.std_normalize(flair)
+            flair_trans = self.min_max_normalize(flair)
+
             aug_brain = self.data_aug(flair_trans)
             data.append(aug_brain)
 

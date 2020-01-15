@@ -166,7 +166,7 @@ class Vae(nn.Module):
       output = self.cf_final(sp1)
       return output
 
-    def foward(self, x):
+    def forward(self, x):
       mu, logvar = self.encode(x)
       z = self.reparameterize(mu, logvar)
       return self.decode(z), mu, logvar
