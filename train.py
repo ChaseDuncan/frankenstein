@@ -40,10 +40,10 @@ import os
 if not os.path.exists('checkpoints'):
   print('[INFO] Make dir %s' % 'checkpoints')
   os.mkdir('checkpoints')
-
+checkpoints_dir = 'checkpoints/' + config.model_name + "/"
 if not os.path.exists('checkpoints/' + config.model_name):
   print('[INFO] Make dir %s' % 'checkpoints/' + config.model_name)
-  os.mkdir('checkpoints/' + config.model_name)
+  os.mkdir(checkpoints_dir)
 
 if config.deterministic_train:
   seed = 0
@@ -66,7 +66,8 @@ brats_data = BraTSDataset(config.data_dir, config.labels, modes=config.modes)
 trainloader, testloader = load_data(brats_data)
 
 input_channels = len(config.modes)
-output_channels = len(config.labels)
+output_channels = len(config.labels) + 1
+#output_channels = len(config.labels)
 
 if args.upsampling == 'bilinear':
   model = btseg_bilinear.BraTSSegmentation(input_channels, output_channels)
@@ -82,5 +83,5 @@ model = model.to(device)
 optimizer = \
     optim.Adam(model.parameters(), lr=1e-4, weight_decay=config.weight_decay)
 train(model, DiceLoss(), optimizer, trainloader, testloader, 
-    config.max_epochs, device, name=config.model_name, checkpoint_dir='checkpoints')
+    config.max_epochs, device, name=config.model_name, checkpoint_dir=checkpoints_dir)
 
