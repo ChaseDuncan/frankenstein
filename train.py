@@ -66,8 +66,8 @@ brats_data = BraTSDataset(config.data_dir, config.labels, modes=config.modes)
 trainloader, testloader = load_data(brats_data)
 
 input_channels = len(config.modes)
-output_channels = len(config.labels) + 1
-#output_channels = len(config.labels)
+output_channels = len(config.labels)
+#output_channels = len(config.labels) + 1
 
 if args.upsampling == 'bilinear':
   model = btseg_bilinear.BraTSSegmentation(input_channels, output_channels)

@@ -108,14 +108,14 @@ def train(model, loss, optimizer, train_data_loader, test_data_loader, max_epoch
     eval_dice = sum_test_dice / len(test_data_loader)
 
     print("Saving model after training epoch {} in {}. Average train loss: {} \
-        Average eval Dice: {}".format(epoch, name + '_test', avg_train_loss, eval_dice))
+        Average eval Dice: {}".format(epoch, checkpoint_dir + name + '_test', avg_train_loss, eval_dice))
 
     save_model(name, epoch, avg_train_losses, eval_dice, model, optimizer)
 
     avg_eval_dice = torch.sum(eval_dice) / len(eval_dice)
 
     if avg_eval_dice > best_eval:
-      save_model(name+'_best', epoch, avg_train_losses, eval_dice, model, optimizer)
+      save_model(checkpoint_dir + name+'_best', epoch, avg_train_losses, eval_dice, model, optimizer)
       best_dice_by_class = eval_dice
 
     best_eval = avg_eval_dice

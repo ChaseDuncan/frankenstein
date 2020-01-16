@@ -35,6 +35,7 @@ class BraTSDataset(Dataset):
 
 
     # TODO: mask brain
+    # changing data type in the function is stupid
     def std_normalize(self, d):
       ''' Subtract mean and divide by standard deviation of the image.'''
       d = torch.from_numpy(d)
@@ -46,8 +47,11 @@ class BraTSDataset(Dataset):
       return d_trans
 
 
-    def min_max_normalization(self, d):
-        return (d - d.min()) / (d.max() - d.min())
+    def min_max_normalize(self, d):
+      # TODO: changing data type in the function is stupid
+      d = torch.from_numpy(d)
+      d = (d - d.min()) / (d.max() - d.min())
+      return d.cuda()
 
 
     def __getitem__(self, idx):
