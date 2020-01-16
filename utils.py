@@ -86,7 +86,6 @@ def train(model, loss, optimizer, train_data_loader, test_data_loader, max_epoch
       #output, recon, mu, logvar = model(src)
 
       cur_loss = loss(output, target)
-      # print('cur_loss: ', cur_loss)
       total_loss += cur_loss
       cur_loss.backward()
       optimizer.step()
@@ -110,7 +109,7 @@ def train(model, loss, optimizer, train_data_loader, test_data_loader, max_epoch
     print("Saving model after training epoch {} in {}. Average train loss: {} \
         Average eval Dice: {}".format(epoch, checkpoint_dir + name + '_test', avg_train_loss, eval_dice))
 
-    save_model(name, epoch, avg_train_losses, eval_dice, model, optimizer)
+    save_model(checkpoint_dir + name, epoch, avg_train_losses, eval_dice, model, optimizer)
 
     avg_eval_dice = torch.sum(eval_dice) / len(eval_dice)
 

@@ -13,7 +13,10 @@ from utils import (
     train
     )
 from torch.utils.data import DataLoader
-from losses.dice import DiceLoss
+from losses.dice import (
+    DiceLoss,
+    DiceRecon
+    )
 from model import btseg_bilinear
 from model.btseg import BraTSSegmentation
 from datasets.data_loader import BraTSDataset
@@ -66,8 +69,8 @@ brats_data = BraTSDataset(config.data_dir, config.labels, modes=config.modes)
 trainloader, testloader = load_data(brats_data)
 
 input_channels = len(config.modes)
-output_channels = len(config.labels)
-#output_channels = len(config.labels) + 1
+#output_channels = len(config.labels)
+output_channels = len(config.labels) + 1
 
 if args.upsampling == 'bilinear':
   model = btseg_bilinear.BraTSSegmentation(input_channels, output_channels)
@@ -82,6 +85,7 @@ model = model.to(device)
 # model_name = config.model_name
 optimizer = \
     optim.Adam(model.parameters(), lr=1e-4, weight_decay=config.weight_decay)
-train(model, DiceLoss(), optimizer, trainloader, testloader, 
+#train(model, DiceLoss(), optimizer, trainloader, testloader, 
+train(model, DiceRecon(), optimizer, trainloader, testloader, 
     config.max_epochs, device, name=config.model_name, checkpoint_dir=checkpoints_dir)
 
