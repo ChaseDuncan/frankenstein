@@ -222,25 +222,20 @@ class BraTSSegmentation(nn.Module):
     def forward(self, x):
       # sp* is the state of the output at each spatial level
       sp0 = self.initConv(x)
-      print('sp0 size: ', sp0.size())
       sp1 = self.block0(sp0)
-      print('sp1 size: ', sp1.size())
       sp2 = self.ds1(sp1)
       sp2 = self.block1(sp2) 
       sp2 = self.block2(sp2)
-      print('sp2 size: ', sp2.size())
       sp3 = self.ds2(sp2)
 
       sp3 = self.block3(sp3)
       sp3 = self.block4(sp3)
-      print('sp3 size: ', sp3.size())
 
       sp4 = self.ds3(sp3)
       sp4 = self.block5(sp4)
       sp4 = self.block6(sp4)
       sp4 = self.block7(sp4)
       sp4 = self.block8(sp4)
-      print('sp4 size: ', sp4.size())
 
       #  Branch 1
       recon = mu = vz = None

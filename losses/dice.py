@@ -50,7 +50,7 @@ class DiceRecon(nn.Module):
   def forward(self, preds, targets):
     dice_loss = self.dice(preds[:, :-1, :, :, :], targets[:, :-1, :, :, :])
     recon_loss = self.recon(preds[:, -1, :, :, :], targets[:, -1, :, :, :])
-    return dice_loss + recon_loss
+    return dice_loss + 0.1*recon_loss
 
 """
 Cross Entropy 3D

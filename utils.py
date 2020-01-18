@@ -94,33 +94,36 @@ def train(model, loss, optimizer, train_data_loader, test_data_loader, max_epoch
     avg_train_losses.append(avg_train_loss)
 
     sum_test_dice = 0.0
+    
+    if epoch % 1 == 0:
+      with torch.no_grad():
+        model.eval()
+        for test_ex in tqdm(test_data_loader):
+          test_src, test_target = test_ex
+          test_src = test_src.to(device, dtype=torch.float)
+          test_target = test_target.to(device, dtype=torch.float)
+          test_output = model(test_src)
+          sum_test_dice += dice_score(test_output, test_target).cpu()
 
-    with torch.no_grad():
-      model.eval()
-      for test_ex in tqdm(test_data_loader):
-        test_src, test_target = test_ex
-        test_src = test_src.to(device, dtype=torch.float)
-        test_target = test_target.to(device, dtype=torch.float)
-        test_output = model(test_src)
-        sum_test_dice += dice_score(test_output, test_target).cpu()
+      eval_dice = sum_test_dice / len(test_data_loader)
 
-    eval_dice = sum_test_dice / len(test_data_loader)
+      print("Saving model after training epoch {} in {}. Average train loss: {} \
+          Average eval Dice: {}".format(epoch, checkpoint_dir + name + '_test', avg_train_loss, eval_dice))
 
-    print("Saving model after training epoch {} in {}. Average train loss: {} \
-        Average eval Dice: {}".format(epoch, checkpoint_dir + name + '_test', avg_train_loss, eval_dice))
+      save_model(checkpoint_dir + name, epoch, avg_train_losses, eval_dice, model, optimizer)
 
-    save_model(checkpoint_dir + name, epoch, avg_train_losses, eval_dice, model, optimizer)
+      avg_eval_dice = torch.sum(eval_dice) / len(eval_dice)
 
-    avg_eval_dice = torch.sum(eval_dice) / len(eval_dice)
+      if avg_eval_dice > best_eval:
+        save_model(checkpoint_dir + name+'_best', epoch, avg_train_losses, eval_dice, model, optimizer)
+        best_dice_by_class = eval_dice
 
-    if avg_eval_dice > best_eval:
-      save_model(checkpoint_dir + name+'_best', epoch, avg_train_losses, eval_dice, model, optimizer)
-      best_dice_by_class = eval_dice
+      best_eval = avg_eval_dice
 
-    best_eval = avg_eval_dice
     if epoch > max_epoch: # TODO: better stopping criteria. Convergence threshold?
       break
 
   print("Training complete.")
+  save_model(checkpoint_dir + name+'_final', epoch, avg_train_losses, eval_dice, model, optimizer)
   return best_dice_by_class
 

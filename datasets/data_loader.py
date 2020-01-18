@@ -38,7 +38,6 @@ class BraTSDataset(Dataset):
     # changing data type in the function is stupid
     def std_normalize(self, d):
       ''' Subtract mean and divide by standard deviation of the image.'''
-      import pdb; pdb.set_trace()
       d = torch.from_numpy(d)
       d_mean = torch.mean(d)
       means = [d_mean]*d.shape[0]
@@ -59,7 +58,7 @@ class BraTSDataset(Dataset):
         data = []
         # TODO: move cropping out
         a = np.random.rand(1)
-        recon_target = None
+        #recon_target = None
         # randomly flip along axis
         if a > 0.5:
             axis = np.random.choice([0, 1, 2], 1)[0]
@@ -85,7 +84,7 @@ class BraTSDataset(Dataset):
             t1ce_trans = self.min_max_normalize(t1ce)
             aug_brain = self.data_aug(t1ce_trans)
             # convert to numpy since the segmentations are numpy arrays
-            recon_target = aug_brain.cpu().numpy()
+            #recon_target = aug_brain.cpu().numpy()
             data.append(aug_brain)
 
         if 't2' in self.modes:
@@ -140,7 +139,7 @@ class BraTSDataset(Dataset):
             segs.append(seg_tc)
 
         # TODO: adding recon target, this needs to be a parameter
-        segs.append(recon_target)
+        #segs.append(recon_target)
         src = torch.stack(data)
         target = np.stack(segs)
         return src, torch.from_numpy(target)
