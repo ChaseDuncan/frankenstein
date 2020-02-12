@@ -245,8 +245,6 @@ class UNet(nn.Module):
       z = self.vae.reparameterize(mu, logvar)
       recon = self.vae.decode(z)
 
-    # recon, mu, vz = self.vae()
-
     #  Branch 2
     if self.upsampling=='bilinear':
       sp3 = sp3 + self.up(self.cf1(sp4))
@@ -264,6 +262,6 @@ class UNet(nn.Module):
 
     sp1 = self.block11(sp1)
     output = self.sig(self.cf_final(sp1))
-    #return output, recon, mu, vz
-    return output
+
+    return output, recon, mu, vz
 

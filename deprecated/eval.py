@@ -42,7 +42,6 @@ model = BraTSSegmentation(input_channels=2)
 checkpoint = torch.load('checkpoints/test')
 model.load_state_dict(checkpoint['model_state_dict'])
 
-import pdb; pdb.set_trace()
 model = model.to(device)
 
 model.eval()

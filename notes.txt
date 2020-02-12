@@ -1,0 +1,24 @@
+jan142020
+
+- Train without normalization
+  # Started training at 11:30am
+    - This resulted in NaNs which reminded me that this was an issue before.
+    - How to confirm whether or not the data is normalized?
+- Reconstruction loss on decoder
+
+- How and what data to save for visualization of training
+  - Use Tensorboard
+  - Save configs with model and what not and stats?
+    - Prob not is using TB
+
+- How to get a brain mask for normalization?
+- Preprocess offline normalization?
+- What's up with inference?
+- Can we submit for scoring to MICCAI?
+- Multiple jobs for parameter sweeps
+- Save configs with model and what not and stats
+- Command line usage stuff
+- Dense connections
+
+
+Read up on SGD/optimizers

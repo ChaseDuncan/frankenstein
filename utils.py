@@ -1,51 +1,121 @@
 import torch
 import numpy as np
 import json
+import os
+
+import nibabel as nib
 
 from configparser import ConfigParser
 from torch.utils.data import DataLoader
+from losses.losses import (
+    dice_score,
+    agg_dice_score
+    )
 import torch.utils.data.sampler as sampler
 from tqdm import tqdm
 
-def dice_score(preds, targets):
-  num_vec = 2*torch.einsum('cijk, cijk ->c', \
-      [preds.squeeze(0), targets.squeeze(0)])
-  denom = torch.einsum('cijk, cijk -> c', \
-      [preds.squeeze(0), preds.squeeze(0)]) +\
-      torch.einsum('cijk, cijk -> c', \
-      [targets.squeeze(0), targets.squeeze(0)])
-  dice = num_vec / denom
-  return dice
+def create_dir(parent, child):
+  if not os.path.exists(parent):
+    print('[INFO] Make dir %s' % parent)
+    os.mkdir(parent)
+
+  if parent[-1] != '/':
+    parent = parent + '/'
+  if child[-1] != '/':
+    child = child + '/'
+
+  direc = parent + child
+  if not os.path.exists(direc):
+    print('[INFO] Make dir %s' % direc)
+    os.mkdir(direc)
+
+
+def save_prediction(src, target, preds, outdir, filename):
+    src = src.squeeze().cpu().numpy() 
+    target = target.squeeze().cpu().numpy()
+
+    src_npy = src[1, :, :, :]
+    img = nib.Nifti1Image(src_npy, np.eye(4))
+    nib.save(img, os.path.join(outdir, filename+'.src.nii.gz'))
+    # TODO: put this in a loop
+    #ground_truth = ['.et_gt.nii.gz', '.tc_gt.nii.gz', '.wt_gt.nii.gz']
+    #preds = ['.et_pd.nii.gz', '.tc_pd.nii.gz', '.wt_pd.nii.gz']
+    et_npy = target[0, :, :, :]
+    et_img = nib.Nifti1Image(et_npy, np.eye(4))
+    nib.save(et_img, os.path.join(outdir,filename+'.et_gt.nii.gz'))
+
+    tc_npy = target[1, :, :, :]
+    tc_img = nib.Nifti1Image(tc_npy, np.eye(4))
+    nib.save(tc_img, os.path.join(outdir, filename+'.tc_gt.nii.gz'))
+
+    wt_npy = target[2, :, :, :]
+    wt_img = nib.Nifti1Image(wt_npy, np.eye(4))
+    nib.save(wt_img, os.path.join(outdir,filename+'.wt_gt.nii.gz'))
+
+    preds = preds.squeeze().cpu().numpy()
+
+    et_pred = preds[0, :, :, :]
+    pred_img = nib.Nifti1Image(et_pred, np.eye(4))
+    nib.save(pred_img, os.path.join(outdir, filename+'.et_pd.nii.gz'))
+
+    tc_pred = preds[1, :, :, :]
+    pred_img = nib.Nifti1Image(tc_pred, np.eye(4))
+    nib.save(pred_img, os.path.join(outdir, filename+'.tc_pd.nii.gz'))
+
+    wt_pred = preds[2, :, :, :]
+    pred_img = nib.Nifti1Image(wt_pred, np.eye(4))
+    nib.save(pred_img, os.path.join(outdir, filename+'.wt_pd.nii.gz'))
+
 
 class MRISegConfigParser():
   def __init__(self, config_file):
     config = ConfigParser()
     config.read(config_file)
+    self.debug = False 
+    self.label_recon = False 
+
+    if config.has_option('data', 'debug'):
+      self.debug = config.getboolean('data', 'debug')
 
     self.deterministic_train = \
         config.getboolean('train_params', 'deterministic_train')
     self.train_split = config.getfloat('train_params', 'train_split')
     self.weight_decay = config.getfloat('train_params', 'weight_decay')
-    self.max_epochs = config.getint('train_params', 'max_epochs')
+    self.epochs = config.getint('train_params', 'epochs')
     self.data_dir = config.get('data', 'data_dir')
+    self.log_dir = config.get('data', 'log_dir')
+    self.model_type = config.get('meta', 'model_type')
     self.model_name = config.get('meta', 'model_name')
     self.modes = json.loads(config.get('data', 'modes'))
     self.labels = json.loads(config.get('data', 'labels'))
+    self.loss = config.get('meta', 'loss')
 
+    if config.has_option('data', 'dims'):
+      self.dims = json.loads(config.get('data', 'dims'))
+    if config.has_option('meta', 'label_recon'):
+      self.label_recon = config.get_boolean('meta', 'label_recon')
 
 # TODO: clean this up vis a vis checkpoints vs saving model, etc.
-def save_model(name, epoch, avg_train_losses, eval_dice, model, optimizer):
+def save_model(name, epoch, writer, model, optimizer):
+  model_state_dict = {}
+  opt_state_dict = {}
+  for k, v in model.state_dict().items():
+    model_state_dict[k] = v.cpu()
+  #for k, v in optimizer.state_dict().items():
+  #  opt_state_dict[k] = v.cpu()
+  chkpt_dir = 'checkpoints/' + name + '/'
   torch.save({'epoch': epoch,
-    'losses': avg_train_losses,
-    'eval': eval_dice,
-    'model_state_dict': model.state_dict(),
-    'optimizer_state_dict': optimizer.state_dict()},
-    name)
+    #'writer': writer,
+    'model_state_dict': model.state_dict(), #model_state_dict,  
+    'optimizer_state_dict': optimizer.state_dict()}, chkpt_dir+name)
+
 
 def load_data(dataset):
   cv_trainloader, cv_testloader = cross_validation(dataset)
   return cv_trainloader[0], cv_testloader[0]
 
+
+# TODO: currently only using one fold. Either use this or get rid of it.
 def cross_validation(dataset, batch_size=1, k = 5):
   num_examples = len(dataset)
   data_indices = np.arange(num_examples)
@@ -67,63 +137,56 @@ def cross_validation(dataset, batch_size=1, k = 5):
     return cv_trainloader, cv_testloader
 
 
-def train(model, loss, optimizer, train_data_loader, test_data_loader, max_epoch, device,
-    name="default", best_eval=0.0, epoch=0, checkpoint_dir="./"):
+def train(model, loss, optimizer, train_dataloader, device):
+  total_loss = 0
+  model.train()
+  for src, target in tqdm(train_dataloader):
+    optimizer.zero_grad()
+    src, target = src.to(device, dtype=torch.float),\
+        target.to(device, dtype=torch.float)
+    output = model(src)
+    cur_loss = loss((output, target, src))
+    total_loss += cur_loss
+    cur_loss.backward()
+    optimizer.step()
 
-  avg_train_losses = []
 
-  while(True):
-    epoch+=1
-    total_loss = 0.0
-    model.train()
-
-    for train_ex in tqdm(train_data_loader):
-      optimizer.zero_grad()
-      src, target = train_ex
-      src = src.to(device, dtype=torch.float)
-      target = target.to(device, dtype=torch.float)
+def _validate(model, loss, dataloader, device, test):
+  total_loss = 0
+  total_dice = 0
+  total_dice_agg = 0
+  with torch.no_grad():
+    model.eval()
+    for src, target in tqdm(dataloader):
+      src, target = src.to(device, dtype=torch.float),\
+          target.to(device, dtype=torch.float)
       output = model(src)
-      #output, recon, mu, logvar = model(src)
+      total_loss += loss((output, target, src))
+      total_dice += dice_score(output, target)
+      total_dice_agg += agg_dice_score(output, target)
+      #if not test:
+      #  print('saving pred')
+      #  z_mat = torch.zeros(output.shape).to(device)
+      #  o_mat = torch.ones(output.shape).to(device)
+      #  preds = torch.where(output>0.5, o_mat, z_mat)
 
-      cur_loss = loss(output, target)
-      total_loss += cur_loss
-      cur_loss.backward()
-      optimizer.step()
+      #  save_prediction(src, target, preds, 'scratch', 'test_out')
+      #  break
+     
 
-    avg_train_loss = total_loss / len(train_data_loader)
-    avg_train_losses.append(avg_train_loss)
+    avg_dice = total_dice / len(dataloader)
+    avg_dice_agg = total_dice_agg / len(dataloader)
+    avg_loss = total_loss / len(dataloader)
 
-    sum_test_dice = 0.0
-    
-    if epoch % 1 == 0:
-      with torch.no_grad():
-        model.eval()
-        for test_ex in tqdm(test_data_loader):
-          test_src, test_target = test_ex
-          test_src = test_src.to(device, dtype=torch.float)
-          test_target = test_target.to(device, dtype=torch.float)
-          test_output = model(test_src)
-          sum_test_dice += dice_score(test_output, test_target).cpu()
+    return avg_dice, avg_dice_agg, avg_loss
 
-      eval_dice = sum_test_dice / len(test_data_loader)
+def validate(model, loss, trainloader, testloader, device):
+  train_dice, train_dice_agg, train_loss = _validate(model, loss, trainloader, device, False)
+  test_dice = None
+  test_dice_agg = None
+  test_loss = None
+  if testloader:
+    test_dice, test_dice_agg, test_loss = _validate(model, loss, testloader, device, True)
 
-      print("Saving model after training epoch {} in {}. Average train loss: {} \
-          Average eval Dice: {}".format(epoch, checkpoint_dir + name + '_test', avg_train_loss, eval_dice))
-
-      save_model(checkpoint_dir + name, epoch, avg_train_losses, eval_dice, model, optimizer)
-
-      avg_eval_dice = torch.sum(eval_dice) / len(eval_dice)
-
-      if avg_eval_dice > best_eval:
-        save_model(checkpoint_dir + name+'_best', epoch, avg_train_losses, eval_dice, model, optimizer)
-        best_dice_by_class = eval_dice
-
-      best_eval = avg_eval_dice
-
-    if epoch > max_epoch: # TODO: better stopping criteria. Convergence threshold?
-      break
-
-  print("Training complete.")
-  save_model(checkpoint_dir + name+'_final', epoch, avg_train_losses, eval_dice, model, optimizer)
-  return best_dice_by_class
+  return train_dice, train_dice_agg, train_loss, test_dice, test_dice_agg, test_loss 
 

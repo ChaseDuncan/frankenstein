@@ -33,9 +33,9 @@ class ResNetBlock(nn.Module):
 
 class DownSampling(nn.Module):
   # downsample by 2; simultaneously increase feature size by 2
-  def __init__(self, channels):
+  def __init__(self, in_channels, out_channels):
     super(DownSampling, self).__init__()
-    self.conv3x3x3 = nn.Conv3d(channels, 2*channels, 
+    self.conv3x3x3 = nn.Conv3d(in_channels, out_channels, 
         kernel_size=3, stride=2, padding=1)
 
   def forward(self, x):
@@ -178,17 +178,17 @@ class UNet(nn.Module):
     self.sig = nn.Sigmoid()
     self.initConv = nn.Conv3d(input_channels, 32, kernel_size=3, stride=1, padding=1)
     self.block0 = ResNetBlock(32)
-    self.ds1 = DownSampling(32)
+    self.ds1 = DownSampling(32, 64)
     self.block1 = ResNetBlock(64)
     self.block2 = ResNetBlock(64) 
-    self.ds2 = DownSampling(64)
+    self.ds2 = DownSampling(64, 128)
     self.block3 = ResNetBlock(128) 
     self.block4 = ResNetBlock(128) 
-    self.ds3 = DownSampling(128)
-    self.block5 = ResNetBlock(256) 
-    self.block6 = ResNetBlock(256) 
-    self.block7 = ResNetBlock(256) 
-    self.block8 = ResNetBlock(256)
+    self.ds3 = DownSampling(128, 512)
+    self.block5 = ResNetBlock(512) 
+    self.block6 = ResNetBlock(512) 
+    self.block7 = ResNetBlock(512) 
+    self.block8 = ResNetBlock(512)
     self.vae_reg = vae_reg
     self.upsampling = upsampling
 
@@ -199,12 +199,14 @@ class UNet(nn.Module):
 
     ####
     # Branch 2
-    self.cf1 = CompressFeatures(256, 128)
+    self.cf1 = CompressFeatures(512, 128)
     self.block9 = ResNetBlock(128) 
+    self.block10 = ResNetBlock(128) 
     self.cf2 = CompressFeatures(128, 64)
-    self.block10 = ResNetBlock(64) 
+    self.block11 = ResNetBlock(64) 
+    self.block12 = ResNetBlock(64) 
     self.cf3 = CompressFeatures(64, 32)
-    self.block11 = ResNetBlock(32)
+    self.block13 = ResNetBlock(32)
     self.cf_final = CompressFeatures(32, output_channels)
 
 
@@ -251,8 +253,10 @@ class UNet(nn.Module):
     if self.upsampling=='bilinear':
       sp3 = sp3 + self.up(self.cf1(sp4))
       sp3 = self.block9(sp3)
+      sp3 = self.block10(sp3)
       sp2 = sp2 + self.up(self.cf2(sp3))
-      sp2 = self.block10(sp2)
+      sp2 = self.block11(sp2)
+      sp2 = self.block12(sp2)
       sp1 = sp1 + self.up(self.cf3(sp2))
 
     if self.upsampling=='deconv':
@@ -262,7 +266,7 @@ class UNet(nn.Module):
       sp2 = self.block10(sp2)
       sp1 = sp1 + self.up1(self.cf3(sp2))
 
-    sp1 = self.block11(sp1)
+    sp1 = self.block13(sp1)
     output = self.sig(self.cf_final(sp1))
     #return output, recon, mu, vz
     return output
