@@ -87,13 +87,13 @@ class MRISegConfigParser():
     self.model_type = config.get('meta', 'model_type')
     self.model_name = config.get('meta', 'model_name')
     self.modes = json.loads(config.get('data', 'modes'))
-    self.labels = json.loads(config.get('data', 'labels'))
     self.loss = config.get('meta', 'loss')
 
     if config.has_option('data', 'dims'):
       self.dims = json.loads(config.get('data', 'dims'))
     if config.has_option('meta', 'label_recon'):
       self.label_recon = config.get_boolean('meta', 'label_recon')
+
 
 # TODO: clean this up vis a vis checkpoints vs saving model, etc.
 def save_model(name, epoch, writer, model, optimizer):
@@ -189,4 +189,5 @@ def validate(model, loss, trainloader, testloader, device):
     test_dice, test_dice_agg, test_loss = _validate(model, loss, testloader, device, True)
 
   return train_dice, train_dice_agg, train_loss, test_dice, test_dice_agg, test_loss 
+
 

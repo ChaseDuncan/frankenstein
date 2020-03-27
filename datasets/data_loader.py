@@ -85,6 +85,7 @@ class BraTSDataset(Dataset):
 
     def _transform_data(self, d):
       t1 = nib.load(d).get_fdata()
+      # TODO: z axis cropping is still hardcoded
       t1 = t1[self.x_off:240-self.x_off, self.y_off:240-self.y_off, 13:-14]
       t1_trans = self.min_max_normalize(t1)
       #t1_trans = self.std_normalize(t1)
@@ -103,31 +104,32 @@ class BraTSDataset(Dataset):
 
     def __getitem__(self, idx):
       data = []
-      # TODO: z axis cropping is still hardcoded
-      a = np.random.rand(1)
       data = [self._transform_data(m[idx]) for m in self.modes]
-
-      seg = nib.load(self.segs[idx]).get_fdata()
-      seg = seg[self.x_off:240-self.x_off, self.y_off:240-self.y_off, 13:-14]
-      if self.axis:
-        seg = np.flip(seg, axis)
-
-      segs = []
-      # TODO: Wrap in a loop.
-      seg_ncr_net = np.zeros(seg.shape)
-      seg_ncr_net[np.where(seg==1)] = 1
-      segs.append(seg_ncr_net)
-
-      seg_ed = np.zeros(seg.shape)
-      seg_ed[np.where(seg==2)] = 1
-      segs.append(seg_ed)
-
-      seg_et = np.zeros(seg.shape)
-      seg_et[np.where(seg==4)] = 1
-      segs.append(seg_et)
-
       src = torch.stack(data)
-      target = np.stack(segs)
 
-      return src, torch.from_numpy(target)
+      target = []
+      if self.segs:
+        seg = nib.load(self.segs[idx]).get_fdata()
+        # TODO: z axis cropping is still hardcoded
+        seg = seg[self.x_off:240-self.x_off, self.y_off:240-self.y_off, 13:-14]
+        if self.axis:
+          seg = np.flip(seg, axis)
 
+        segs = []
+        # TODO: Wrap in a loop.
+        seg_ncr_net = np.zeros(seg.shape)
+        seg_ncr_net[np.where(seg==1)] = 1
+        segs.append(seg_ncr_net)
+
+        seg_ed = np.zeros(seg.shape)
+        seg_ed[np.where(seg==2)] = 1
+        segs.append(seg_ed)
+
+        seg_et = np.zeros(seg.shape)
+        seg_et[np.where(seg==4)] = 1
+        segs.append(seg_et)
+        target = torch.from_numpy(np.stack(segs))
+        return src, target
+      
+      target = self.modes[0][idx]
+      return src, target

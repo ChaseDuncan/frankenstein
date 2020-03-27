@@ -82,7 +82,7 @@ class VAEDiceLoss(nn.Module):
     if self.label_recon:
        self.dice(preds, targets, src) + 0.1*F.mse_loss(recon, targets) + 0.1*self.kl(mu, logvar, 256)
 
-    return self.dice(preds, targets, src) + 0.1*F.mse_loss(recon, src) + 0.1*self.kl(mu, logvar, 256)
+    return self.dice((preds, targets, src)) + 0.1*F.mse_loss(recon, src) + 0.1*self.kl(mu, logvar, 256)
 
 
 class AvgDiceLoss(nn.Module):
@@ -90,7 +90,8 @@ class AvgDiceLoss(nn.Module):
     super(AvgDiceLoss, self).__init__()
   # Need a loss builder so we don't have to have superfluous arguments
 
-  def forward(self, preds, targets, src):
+  def forward(self, preds_targets):
+    preds, targets, _ = preds_targets
     proportions = dice_score(preds, targets)
     avg_dice = torch.einsum('c->', proportions) / (targets.shape[0]*targets.shape[1])
     return 1 - avg_dice
@@ -113,7 +114,7 @@ class ReconRegLoss(nn.Module):
   def forward(self, output_targets):
     output, target, src = output_targets
     preds, recon = output
-    dice_loss = self.dice(preds, target, src)
+    dice_loss = self.dice(output_targets)
     return dice_loss + 0.1*F.mse_loss(recon, src)
 
 def build(config):

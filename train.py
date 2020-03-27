@@ -67,10 +67,6 @@ brats_data = BraTSDataset(config.data_dir, modes=config.modes, debug=config.debu
 #testloader = DataLoader(test_split, batch_size=1, shuffle=True, num_workers=0)
 trainloader = DataLoader(brats_data, batch_size=1, shuffle=True, num_workers=0)
 testloader = None
-# specify in config?
-input_channels = len(config.modes)
-output_channels = len(config.labels)
-#output_channels = len(config.labels) + 1
 
 # TODO: Replace with builder.
 if config.model_type == 'baseline':
