@@ -65,12 +65,13 @@ brats_data = BraTSDataset(config.data_dir, modes=config.modes, debug=config.debu
 #
 #trainloader = DataLoader(train_split, batch_size=1, shuffle=True, num_workers=0)
 #testloader = DataLoader(test_split, batch_size=1, shuffle=True, num_workers=0)
-trainloader = DataLoader(brats_data, batch_size=1, shuffle=True, num_workers=0)
+trainloader = DataLoader(brats_data, batch_size=6, shuffle=True, num_workers=0)
 testloader = None
 
 # TODO: Replace with builder.
 if config.model_type == 'baseline':
   model = vaereg.UNet()
+  model = nn.DataParallel(model)
   model = model.to(device)
 if config.model_type == 'reconreg':
   model = vaereg.ReconReg()

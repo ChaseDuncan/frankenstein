@@ -16,13 +16,13 @@ model = vaereg.UNet()
 #    torch.load('checkpoints/vaereg-fulltrain-smallcrop-eloss/vaereg-fulltrain-smallcrop-eloss', 
 #map_location='cuda:0')
 checkpoint = \
-    torch.load('checkpoints/vaereg-fulltrain-smallcrop-eloss/vaereg-fulltrain-smallcrop-eloss', 
+    torch.load('checkpoints/baseline/baseline', 
         map_location='cuda:0')
 model.load_state_dict(checkpoint['model_state_dict'], strict=False)
 model = model.to(device)
 
 brats_data = \
-    BraTSDataset('/data/cddunca2/brats2018/validation/', dims=[128, 128, 128])
+    BraTSDataset('/dev/shm/brats2018validation/', dims=[128, 128, 128])
 dataloader = DataLoader(brats_data, batch_size=1, num_workers=0)
 dims=[128, 128, 128]
 with torch.no_grad():
@@ -47,7 +47,7 @@ with torch.no_grad():
 
     img = nib.Nifti1Image(label.numpy(), np.eye(4))
      
-    img.to_filename(os.path.join('annotations', ID+'.nii.gz'))
+    img.to_filename(os.path.join('annotations/baseline/', ID+'.nii.gz'))
 
        
 
