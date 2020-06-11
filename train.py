@@ -1,3 +1,8 @@
+import os
+import sys
+import time
+import tabulate
+
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -7,120 +12,194 @@ import pickle
 import argparse
 import random
 from utils import (
-    MRISegConfigParser,
-    save_model,
+    save_checkpoint,
     load_data,
     train,
     validate,
-    create_dir
     )
 
 from torch.utils.data import DataLoader
 from factory.scheduler import PolynomialLR
-from losses import losses
+import losses
 from model import vaereg
-from datasets.data_loader import BraTSDataset
+from data_loader import BraTSDataset
 
-"""
-Usage:
+parser = argparse.ArgumentParser(description='Train glioma segmentation model.')
+#parser.add_argument('--config')
+# [meta]
+# loss: vae
+# 
+# [data]
+# #data_dir: /data/cddunca2/brats2018/training/
+# data_dir: /dev/shm/brats2018/
+# log_dir: ./logs/
+# modes: ["t1", "t1ce", "t2", "flair"]
+# labels: ["whole_tumor", "enhancing_tumor", "tumor_core"]
+# debug: False
+# dims: [160, 192, 128]
+# 
+# [train_params]
+# deterministic_train: False
+# batch_size: 3
+# learning_rate: 1e-4
+# weight_decay: 1e-5
+# epochs: 300
+# train_split: 1.0
 
-python train.py --config ./config/test.cfg --model_name ./checkpoints_aug/ --gpu 3
-python train.py --config ./config/test.cfg --model_name ./checkpoints_bilinear/ --gpu 3 --upsampling bilinear
-python train.py --config ./config/test.cfg --model_name ./checkpoints_2branch/ --gpu 1
+# In this directory is stored the script used to start the training,
+# the most recent and best checkpoints, and a directory of logs.
+parser.add_argument('--dir', type=str, required=True, metavar='PATH',
+    help='The directory to write all output to.')
 
-"""
+parser.add_argument('--data_dir', type=str, required=True, metavar='PATH TO DATA',
+    help='Path to where the data is located.')
 
+parser.add_argument('--model', type=str, default=None, required=True, metavar='MODEL',
+                        help='model name (default: None)')
 
-parser = argparse.ArgumentParser(description='Train MRI segmentation model.')
-parser.add_argument('--config')
-parser.add_argument('--upsampling', type=str, default='bilinear', choices=['bilinear', 'deconv'])
+parser.add_argument('--upsampling', type=str, default='bilinear', 
+    choices=['bilinear', 'deconv'], 
+    help='upsampling algorithm to use in decoder (default: bilinear)')
+
+parser.add_argument('--loss', type=str, default='avgdice', 
+    choices=['dice', 'recon', 'avgdice', 'vae'], 
+    help='which loss to use during training (default: avgdice)')
+
+parser.add_argument('--data_par', action='store_true', 
+    help='data parellelism flag (default: off)')
+
+parser.add_argument('--seed', type=int, default=1, metavar='S', 
+    help='random seed (default: 1)')
+
+parser.add_argument('--wd', type=float, default=1e-4, 
+    help='weight decay (default: 1e-4)')
+
+parser.add_argument('--resume', type=str, default=None, metavar='PATH',
+                        help='checkpoint to resume training from (default: None)')
+
+parser.add_argument('--epochs', type=int, default=100, metavar='N', 
+    help='number of epochs to train (default: 100)')
+
+parser.add_argument('--num_workers', type=int, default=4, metavar='N', 
+    help='number of workers to assign to dataloader (default: 4)')
+
+parser.add_argument('--batch_size', type=int, default=1, metavar='N', 
+    help='batch_size (default: 1)')
+
+parser.add_argument('--save_freq', type=int, default=25, metavar='N', 
+    help='save frequency (default: 25)')
+
+parser.add_argument('--eval_freq', type=int, default=5, metavar='N', 
+    help='evaluation frequency (default: 5)')
+
+parser.add_argument('--lr', type=float, default=1e-4, metavar='LR', 
+    help='initial learning rate (default: 1e-4)')
+
+# Currently unused.
+parser.add_argument('--momentum', type=float, default=0.9, metavar='M', 
+    help='SGD momentum (default: 0.9)')
+
 args = parser.parse_args()
-config = MRISegConfigParser(args.config)
-
 device = torch.device('cuda')
 
-for d in ['checkpoints', config.log_dir]:
-  create_dir(d, config.model_name)
+os.makedirs(f'{args.dir}/logs', exist_ok=True)
+os.makedirs(f'{args.dir}/checkpoints', exist_ok=True)
 
-if config.deterministic_train:
-  seed = 0
-  torch.manual_seed(seed)
-  torch.cuda.manual_seed(seed)
-  np.random.seed(seed)
-  random.seed(seed)
-  torch.manual_seed(seed)
-  torch.backends.cudnn.benchmark = False
-  torch.backends.cudnn.deterministic = True
+#dims=[168, 198, 128]
+dims=[128, 128, 128]
+with open(os.path.join(args.dir, 'command.sh'), 'w') as f:
+  f.write(' '.join(sys.argv))
+  f.write('\n')
 
-# TODO: just pass config and figure it out
-#brats_data = BraTSDataset(config.data_dir, config.labels, modes=config.modes, debug=True)
-#train, test = torch.utils.data.random_split(brats_data, [8, 2]) 
-#trainp = 228
-#testp = 57
-trainp = 285
-testp = 0
+torch.manual_seed(args.seed)
+torch.cuda.manual_seed(args.seed)
+np.random.seed(args.seed)
+random.seed(args.seed)
+torch.manual_seed(args.seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
 
-brats_data = BraTSDataset(config.data_dir, modes=config.modes, debug=config.debug, dims=config.dims)
-#train_split, test_split = torch.utils.data.random_split(brats_data, [trainp, testp]) 
-#
-#trainloader = DataLoader(train_split, batch_size=1, shuffle=True, num_workers=0)
-#testloader = DataLoader(test_split, batch_size=1, shuffle=True, num_workers=0)
-trainloader = DataLoader(brats_data, batch_size=6, shuffle=True, num_workers=0)
-testloader = None
+# TODO: move data into /dev/shm
+brats_data = BraTSDataset(args.data_dir, dims=dims)
+trainloader = DataLoader(brats_data, batch_size=args.batch_size, 
+                        shuffle=True, num_workers=args.num_workers)
 
 # TODO: Replace with builder.
-if config.model_type == 'baseline':
+if args.model == 'baseline':
   model = vaereg.UNet()
-  model = nn.DataParallel(model)
-  model = model.to(device)
-if config.model_type == 'reconreg':
+#<<<<<<< Updated upstream
+#  model = nn.DataParallel(model)
+#  model = model.to(device)
+#if config.model_type == 'reconreg':
+#=======
+  #model = btseg.BraTSSegmentation()
+  device_ids = [i for i in range(torch.cuda.device_count())]
+  model = nn.DataParallel(model, device_ids)
+  model = model.cuda()
+
+if args.model == 'reconreg':
+#>>>>>>> Stashed changes
   model = vaereg.ReconReg()
   model = model.to(device)
-if config.model_type == 'vaereg':
+
+if args.model == 'vaereg':
   model = vaereg.VAEreg()
+  device_ids = [i for i in range(torch.cuda.device_count())]
+  model = nn.DataParallel(model, device_ids)
+  model = model.cuda()
 
-# TODO: optimizer factory
-#optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.1)
-#optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.1)
-# model_name = config.model_name
 optimizer = \
-    optim.Adam(model.parameters(), lr=1e-4, weight_decay=config.weight_decay)
+    optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
 
-writer = SummaryWriter(log_dir=config.log_dir+config.model_name+'/')
-scheduler = PolynomialLR(optimizer, config.epochs)
-loss = losses.build(config)
+start_epoch = 0
+if args.resume:
+  print("Resume training from %s" % args.resume)
+  checkpoint = torch.load(args.resume)
+  start_epoch = checkpoint["epoch"]
+  model.load_state_dict(checkpoint["state_dict"])
+  optimizer.load_state_dict(checkpoint["optimizer"])    
 
-for epoch in range(1, config.epochs):
+# TODO: optimizer factory, allow for SGD with momentum etx.
+columns = ['ep', 'loss', 'dice_tc_agg',\
+  'dice_et_agg', 'dice_ed_agg', 'dice_ncr', 'dice_et',\
+  'dice_wt', 'time', 'mem_usage']
+
+writer = SummaryWriter(log_dir=f'{args.dir}/logs')
+scheduler = PolynomialLR(optimizer, args.epochs)
+loss = losses.build(args.loss)
+
+for epoch in range(start_epoch, args.epochs):
+  time_ep = time.time()
+  model.train()
   train(model, loss, optimizer, trainloader, device)
   
-  #Only validate every x epochs
-  if epoch % 5 != 0:
-    scheduler.step()
-    continue
+  if (epoch + 1) % args.save_freq == 0:
+      save_checkpoint(
+          f'{args.dir}/checkpoints',
+          epoch + 1,
+          state_dict=model.state_dict(),
+          optimizer=optimizer.state_dict()
+      )
 
-  train_dice, train_dice_agg, train_loss, test_dice, test_dice_agg, test_loss =\
-      validate(model, loss, trainloader, testloader, device)
-
-  # Log validation
-  writer.add_scalar('Loss/train', train_loss, epoch)
-  writer.add_scalar('Dice/train/ncr&net', train_dice[0], epoch)
-  writer.add_scalar('Dice/train/ed', train_dice[1], epoch)
-  writer.add_scalar('Dice/train/et', train_dice[2], epoch)
-  writer.add_scalar('Dice/train/et_agg', train_dice_agg[0], epoch)
-  writer.add_scalar('Dice/train/wt_agg', train_dice_agg[1], epoch)
-  writer.add_scalar('Dice/train/tc_agg', train_dice_agg[2], epoch)
-
-  if test_dice and test_loss:
-    writer.add_scalar('Loss/test', test_loss, epoch)
-    writer.add_scalar('Dice/test/ncr&net', test_dice[0], epoch)
-    writer.add_scalar('Dice/test/ed', test_dice[1], epoch)
-    writer.add_scalar('Dice/test/et', test_dice[2], epoch)
-    # TODO: make this just test and add agg score
-    print("epoch: {}\ttrain loss: {}\ttrain dice: {}\t\
-        test loss: {}\t test dice: {}".format(epoch, train_loss, 
-        [ d.item() for d in train_dice ], test_loss, [ d.item() for d in test_dice ])) 
-  print("epoch: {} ||| train loss: {} ||| train dice: {} ||| train dice agg: {}".format(epoch, 
-    train_loss, [ d.item() for d in train_dice ], [ d.item() for d in train_dice_agg ])) 
-  save_model(config.model_name, epoch, writer, model, optimizer) 
+  if (epoch + 1) % args.eval_freq == 0:
+    # Evaluate on training data
+    train_res = validate(model, loss, trainloader, device)
+    time_ep = time.time() - time_ep
+    memory_usage = torch.cuda.memory_allocated() / (1024.0 ** 3)
+    values = [epoch + 1, train_res['train_loss'].data] \
+          + train_res['train_dice_agg'].tolist() + train_res['train_dice'].tolist()\
+          + [ time_ep, memory_usage] 
+    table = tabulate.tabulate([values], columns, tablefmt="simple", floatfmt="8.4f")
+    print(table)
+  
   scheduler.step()
+  # Log validation
+  #writer.add_scalar('Loss/train', train_loss, epoch)
+  #writer.add_scalar('Dice/train/ncr&net', train_dice[0], epoch)
+  #writer.add_scalar('Dice/train/ed', train_dice[1], epoch)
+  #writer.add_scalar('Dice/train/et', train_dice[2], epoch)
+  #writer.add_scalar('Dice/train/et_agg', train_dice_agg[0], epoch)
+  #writer.add_scalar('Dice/train/wt_agg', train_dice_agg[1], epoch)
+  #writer.add_scalar('Dice/train/tc_agg', train_dice_agg[2], epoch)
+
   

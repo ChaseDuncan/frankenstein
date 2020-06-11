@@ -7,28 +7,20 @@ import nibabel as nib
 
 from configparser import ConfigParser
 from torch.utils.data import DataLoader
-from losses.losses import (
+from losses import (
     dice_score,
     agg_dice_score
     )
 import torch.utils.data.sampler as sampler
 from tqdm import tqdm
 
-def create_dir(parent, child):
-  if not os.path.exists(parent):
-    print('[INFO] Make dir %s' % parent)
-    os.mkdir(parent)
-
-  if parent[-1] != '/':
-    parent = parent + '/'
-  if child[-1] != '/':
-    child = child + '/'
-
-  direc = parent + child
-  if not os.path.exists(direc):
-    print('[INFO] Make dir %s' % direc)
-    os.mkdir(direc)
-
+def save_checkpoint(dir, epoch, name='checkpoint', **kwargs):
+    state = {
+        'epoch': epoch,
+    }
+    state.update(kwargs)
+    filepath = os.path.join(dir, '%s-%d.pt' % (name, epoch))
+    torch.save(state, filepath)
 
 def save_prediction(src, target, preds, outdir, filename):
     src = src.squeeze().cpu().numpy() 
@@ -145,49 +137,53 @@ def train(model, loss, optimizer, train_dataloader, device):
     src, target = src.to(device, dtype=torch.float),\
         target.to(device, dtype=torch.float)
     output = model(src)
-    cur_loss = loss((output, target, src))
-    total_loss += cur_loss
+    cur_loss = loss(output, {'target':target, 'src':src})
     cur_loss.backward()
     optimizer.step()
-
+    
 
 def _validate(model, loss, dataloader, device, test):
-  total_loss = 0
-  total_dice = 0
-  total_dice_agg = 0
-  with torch.no_grad():
-    model.eval()
-    for src, target in tqdm(dataloader):
-      src, target = src.to(device, dtype=torch.float),\
-          target.to(device, dtype=torch.float)
-      output = model(src)
-      total_loss += loss((output, target, src))
-      total_dice += dice_score(output, target)
-      total_dice_agg += agg_dice_score(output, target)
-      #if not test:
-      #  print('saving pred')
-      #  z_mat = torch.zeros(output.shape).to(device)
-      #  o_mat = torch.ones(output.shape).to(device)
-      #  preds = torch.where(output>0.5, o_mat, z_mat)
+    total_loss = 0
+    total_dice = 0
+    total_dice_agg = 0
+    num_eps = 0
+    with torch.no_grad():
+        model.eval()
+        for src, target in tqdm(dataloader):
+            num_eps+=1
+            src, target = src.to(device, dtype=torch.float),\
+                target.to(device, dtype=torch.float)
+            output = model(src)
+            total_loss += loss(output, {'target':target, 'src':src}) 
+        
+            total_dice += torch.einsum('bc->c', dice_score(output, target))
+            total_dice_agg += torch.einsum('bc->c', agg_dice_score(output, target))
+            #if not test:
+            #  print('saving pred')
+            #  z_mat = torch.zeros(output.shape).to(device)
+            #  o_mat = torch.ones(output.shape).to(device)
+            #  preds = torch.where(output>0.5, o_mat, z_mat)
 
-      #  save_prediction(src, target, preds, 'scratch', 'test_out')
-      #  break
-     
-
-    avg_dice = total_dice / len(dataloader)
-    avg_dice_agg = total_dice_agg / len(dataloader)
-    avg_loss = total_loss / len(dataloader)
-
+            #  save_prediction(src, target, preds, 'scratch', 'test_out')
+       
+    avg_dice = total_dice / len(dataloader.dataset)
+    avg_dice_agg = total_dice_agg / len(dataloader.dataset)
+    avg_loss = total_loss / num_eps 
     return avg_dice, avg_dice_agg, avg_loss
 
-def validate(model, loss, trainloader, testloader, device):
-  train_dice, train_dice_agg, train_loss = _validate(model, loss, trainloader, device, False)
+# TODO: probably get rid of testloader
+def validate(model, loss, trainloader, device, testloader=None):
+  train_dice, train_dice_agg, train_loss =\
+      _validate(model, loss, trainloader, device, False)
   test_dice = None
   test_dice_agg = None
   test_loss = None
+
   if testloader:
-    test_dice, test_dice_agg, test_loss = _validate(model, loss, testloader, device, True)
+    test_dice, test_dice_agg, test_loss =\
+        _validate(model, loss, testloader, device, True)
 
-  return train_dice, train_dice_agg, train_loss, test_dice, test_dice_agg, test_loss 
-
+  return {'train_dice':train_dice, 'train_dice_agg':train_dice_agg, 
+          'train_loss':train_loss, 'test_dice':test_dice, 
+          'test_dice_agg':test_dice_agg, 'test_loss':test_loss}
 

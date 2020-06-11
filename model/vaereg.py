@@ -50,22 +50,6 @@ class UpsamplingBilinear3d(nn.modules.Upsample):
     super(UpsamplingBilinear3d, self).__init__(size, scale_factor, 
         mode='trilinear', align_corners=True)
 
-# Taken from: https://github.com/pytorch/pytorch/issues/12207#issuecomment-504729632
-# Maybe adapt?
-#class UpsampleDeterministic(nn.Module):
-#    def __init__(self,upscale=2):
-#        super(UpsampleDeterministic, self).__init__()
-#        self.upscale = upscale
-#
-#    def forward(self, x):
-#        '''
-#        x: 4-dim tensor. shape is (batch,channel,h,w)
-#        output: 4-dim tensor. shape is (batch,channel,self.upscale*h,self.upscale*w)
-#        '''
-#        return x[:, :, :, None, :, None].expand(-1, -1, -1, self.upscale, -1, self.upscale)
-#	 .reshape(x.size(0), x.size(1), x.size(2)*self.upscale, x.size(3)*self.upscale)
-#
-
 class CompressFeatures(nn.Module):
   # Reduce the number of features by a factor of 2.
   # Assumes channels_in is power of 2.
@@ -287,16 +271,18 @@ class UNet(nn.Module):
 class VAEreg(nn.Module):
   def __init__(self):
     super(VAEreg, self).__init__()
-    self.encoder = Encoder().to('cuda:0')
-    self.decoder = Decoder().to('cuda:0')
-    self.vae = Vae().to('cuda:1')
+    self.encoder = Encoder()
+    self.decoder = Decoder()
+    self.vae = Vae()
 
   def forward(self, x):
-    enc_out = self.encoder(x.to('cuda:0'))
-    dec_out = self.decoder(enc_out)
-    recon, mu, logvar = self.vae(enc_out[0].to('cuda:1'))
-    output = (dec_out, recon.to('cuda:0'), mu.to('cuda:0'), logvar.to('cuda:0'))
-    return output
+    enc_out = self.encoder(x)
+    seg_map = self.decoder(enc_out)
+    recon, mu, logvar = self.vae(enc_out[0])
+    return {'seg_map':seg_map, 
+            'recon':recon,
+            'mu':mu, 
+            'logvar':logvar}
 
 
 class ReconReg(nn.Module):
